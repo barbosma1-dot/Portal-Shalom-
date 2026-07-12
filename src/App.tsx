@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { CommunityApp, UserSession } from "./types";
+import { useInstallPrompt } from "./hooks/useInstallPrompt";
+import { InstallButton } from "./components/InstallButton";
 
 // List of static applications
 const staticApps = [
@@ -105,57 +107,9 @@ export default function App() {
   // Modals state
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPWAModal, setShowPWAModal] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
 
-  // Escutar prompt de instalação do PWA e estado de instalado
-  useEffect(() => {
-    const checkInstalled = () => {
-      const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone;
-      setIsInstalled(!!standalone);
-      if (standalone) {
-        setShowInstallPrompt(false);
-      }
-    };
-
-    checkInstalled();
-
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShowInstallPrompt(true);
-    };
-
-    const handleAppInstalled = () => {
-      setIsInstalled(true);
-      setShowInstallPrompt(false);
-      setDeferredPrompt(null);
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    window.addEventListener("appinstalled", handleAppInstalled);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-      window.removeEventListener("appinstalled", handleAppInstalled);
-    };
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) {
-      // Se não houver prompt nativo (ex: iOS Safari ou navegadores sem suporte), abriremos o modal explicativo
-      setShowPWAModal(true);
-      return;
-    }
-    
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`Resposta do usuário para instalação: ${outcome}`);
-    
-    setDeferredPrompt(null);
-    setShowInstallPrompt(false);
-  };
+  // Hook unificado para instalação de PWA
+  const { isInstallable, isInstalled } = useInstallPrompt();
 
   // Verify and fetch active sessions on mount
   const checkSession = async () => {
@@ -398,17 +352,7 @@ export default function App() {
 
           <div className="flex items-center gap-2 sm:gap-4">
             {/* PWA INSTALL BUTTON */}
-            {!isInstalled && (
-              <button
-                onClick={handleInstallClick}
-                className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50 flex items-center gap-1.5 px-3 h-9 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-all cursor-pointer shadow-xs active:scale-95"
-                id="pwa-install-button"
-                title="Instalar Portal Shalom como Aplicativo no seu dispositivo"
-              >
-                <Download size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
-                <span>Instalar App</span>
-              </button>
-            )}
+            <InstallButton variant="header" />
 
             {session ? (
               <div className="flex items-center gap-3">
@@ -516,7 +460,7 @@ export default function App() {
                   )}
 
                   {/* Option B: PWA Install on phone callout */}
-                  {!isInstalled && (
+                  {isInstallable && !isInstalled && (
                     <div className="p-3 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 dark:border-amber-500/20 rounded-2xl flex items-center justify-between gap-3 text-left">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
@@ -527,12 +471,7 @@ export default function App() {
                           <p className="text-[10px] text-slate-400 font-mono">Acesse na tela inicial com um toque</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={handleInstallClick}
-                        className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline px-2.5 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors cursor-pointer"
-                      >
-                        Instalar
-                      </button>
+                      <InstallButton variant="header" />
                     </div>
                   )}
                 </div>
@@ -571,7 +510,7 @@ export default function App() {
               </div>
 
               {/* MOBILE INSTALL BANNER */}
-              {!isInstalled && (
+              {isInstallable && !isInstalled && (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -590,13 +529,9 @@ export default function App() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={handleInstallClick}
-                    className="w-full sm:w-auto px-5 h-9 sm:h-10 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
-                  >
-                    <Download size={13} />
-                    <span>Instalar Aplicativo</span>
-                  </button>
+                  <div className="w-full sm:w-auto shrink-0">
+                    <InstallButton variant="banner" />
+                  </div>
                 </motion.div>
               )}
 
