@@ -33,7 +33,8 @@ const staticApps = [
     name: "PA Shalom",
     url: "https://pashalom.pages.dev",
     description: "Planejamento Apostólico e células da comunidade Shalom.",
-    icon: Church,
+    icon: "https://pashalom.pages.dev/favicon.ico",
+    fallbackIcon: Church,
     colorClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50",
     topBorder: "bg-blue-500"
   },
@@ -41,7 +42,8 @@ const staticApps = [
     name: "PO Shalom",
     url: "https://poshalom.pages.dev",
     description: "Planejamento Orçamentário e finanças da comunidade Shalom.",
-    icon: Users,
+    icon: "https://poshalom.pages.dev/favicon.ico",
+    fallbackIcon: Users,
     colorClass: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50",
     topBorder: "bg-amber-500"
   },
@@ -49,7 +51,8 @@ const staticApps = [
     name: "Gestão Pro",
     url: "https://gest-opro.pages.dev",
     description: "Gerenciador profissional de projetos, orçamentos e missões.",
-    icon: BarChart3,
+    icon: "https://gest-opro.pages.dev/favicon.ico",
+    fallbackIcon: BarChart3,
     colorClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50",
     topBorder: "bg-emerald-500"
   },
@@ -57,7 +60,8 @@ const staticApps = [
     name: "Evangelização Shalom",
     url: "https://evansh.pages.dev",
     description: "Ações de evangelização e acompanhamento de vocacionados.",
-    icon: Flame,
+    icon: "https://evansh.pages.dev/favicon.ico",
+    fallbackIcon: Flame,
     colorClass: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50",
     topBorder: "bg-rose-500"
   },
@@ -65,7 +69,8 @@ const staticApps = [
     name: "Adoração Shalom",
     url: "https://adora-o-shalom.pages.dev",
     description: "Reserva de capela, adoração perpétua e vigílias.",
-    icon: Heart,
+    icon: "https://adora-o-shalom.pages.dev/favicon.ico",
+    fallbackIcon: Heart,
     colorClass: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/50",
     topBorder: "bg-indigo-500"
   },
@@ -73,7 +78,8 @@ const staticApps = [
     name: "Cifras Shalom",
     url: "https://cifra-sh.pages.dev",
     description: "Repositório litúrgico de partituras e cifras de louvores.",
-    icon: Music,
+    icon: "https://cifra-sh.pages.dev/favicon.ico",
+    fallbackIcon: Music,
     colorClass: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-900/50",
     topBorder: "bg-violet-500"
   },
@@ -81,7 +87,8 @@ const staticApps = [
     name: "WOP Shalom",
     url: "https://wopsh.pages.dev",
     description: "Portal de formação, ministérios e escalas pastorais.",
-    icon: Users,
+    icon: "https://wopsh.pages.dev/favicon.ico",
+    fallbackIcon: Users,
     colorClass: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/50",
     topBorder: "bg-orange-500"
   },
@@ -93,6 +100,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [failedIcons, setFailedIcons] = useState<Record<string, boolean>>({});
 
   // Modals state
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -270,6 +278,36 @@ export default function App() {
       } catch (err: any) {
         setError("Erro ao deslogar: " + err.message);
       }
+    }
+  };
+
+  const handleAccessApp = async (appUrl: string) => {
+    if (!supabase) {
+      const fallbackToken = session?.token || "mock_access_token";
+      const fallbackRefresh = "mock_refresh_token";
+      const destinationUrl = `${appUrl}#access_token=${fallbackToken}&refresh_token=${fallbackRefresh}`;
+      window.open(destinationUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("Erro ao obter sessão:", error);
+      }
+      const currentSbSession = data?.session;
+      if (currentSbSession) {
+        const destinationUrl = `${appUrl}#access_token=${currentSbSession.access_token}&refresh_token=${currentSbSession.refresh_token}`;
+        window.open(destinationUrl, "_blank", "noopener,noreferrer");
+      } else {
+        const fallbackToken = session?.token || "mock_access_token";
+        const fallbackRefresh = "mock_refresh_token";
+        const destinationUrl = `${appUrl}#access_token=${fallbackToken}&refresh_token=${fallbackRefresh}`;
+        window.open(destinationUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      console.error("Erro ao redirecionar com SSO:", err);
+      window.open(appUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -498,7 +536,8 @@ export default function App() {
               {/* STAGGERED APP GRID CARDS */}
               <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6" id="apps-grid">
                 {staticApps.map((app, index) => {
-                  const IconComponent = app.icon;
+                  const FallbackIcon = app.fallbackIcon;
+                  const hasImageFailed = failedIcons[app.name];
 
                   return (
                     <motion.div
@@ -514,10 +553,20 @@ export default function App() {
                       <div>
                         {/* Top Indicator */}
                         <div className="flex items-center justify-between mb-4">
-                          {/* App Icon Wrapper */}
-                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
-                            <IconComponent size={20} className="sm:w-5 sm:h-5" />
-                          </div>
+                          {/* App Icon / Logo Wrapper */}
+                          {hasImageFailed ? (
+                            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
+                              <FallbackIcon size={20} className="sm:w-5 sm:h-5" />
+                            </div>
+                          ) : (
+                            <img
+                              src={app.icon}
+                              alt={app.name}
+                              onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-800"
+                              referrerPolicy="no-referrer"
+                            />
+                          )}
 
                           {/* Connection indicator */}
                           <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium leading-none text-emerald-600 dark:text-emerald-400">
@@ -543,15 +592,13 @@ export default function App() {
 
                       {/* Action Link/Button */}
                       <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <a
-                          href={app.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => handleAccessApp(app.url)}
                           className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer"
                         >
                           <span>Acessar App</span>
                           <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
-                        </a>
+                        </button>
                       </div>
                     </motion.div>
                   );
