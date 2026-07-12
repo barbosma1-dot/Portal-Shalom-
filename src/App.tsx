@@ -22,21 +22,18 @@ import {
   AlertCircle,
   Download,
   Smartphone,
-  Monitor,
-  UserCheck
+  Monitor
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { CommunityApp, UserSession } from "./types";
-import { useInstallPrompt } from "./hooks/useInstallPrompt";
-import { InstallButton } from "./components/InstallButton";
 
 // List of static applications
 const staticApps = [
   {
     name: "PA Shalom",
-    url: "https://pa-shalom.pages.dev",
+    url: "https://pashalom.pages.dev",
     description: "Planejamento Apostólico e células da comunidade Shalom.",
-    icon: "/icons/pa-shalom.ico",
+    icon: "https://pashalom.pages.dev/favicon.ico",
     fallbackIcon: Church,
     colorClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50",
     topBorder: "bg-blue-500"
@@ -45,7 +42,7 @@ const staticApps = [
     name: "PO Shalom",
     url: "https://poshalom.pages.dev",
     description: "Planejamento Orçamentário e finanças da comunidade Shalom.",
-    icon: "/icons/po-shalom.ico",
+    icon: "https://poshalom.pages.dev/favicon.ico",
     fallbackIcon: Users,
     colorClass: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50",
     topBorder: "bg-amber-500"
@@ -54,7 +51,7 @@ const staticApps = [
     name: "Gestão Pro",
     url: "https://gest-opro.pages.dev",
     description: "Gerenciador profissional de projetos, orçamentos e missões.",
-    icon: "/icons/gest-pro.ico",
+    icon: "https://gest-opro.pages.dev/favicon.ico",
     fallbackIcon: BarChart3,
     colorClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50",
     topBorder: "bg-emerald-500"
@@ -63,7 +60,7 @@ const staticApps = [
     name: "Evangelização Shalom",
     url: "https://evansh.pages.dev",
     description: "Ações de evangelização e acompanhamento de vocacionados.",
-    icon: "/icons/evang-shalom.ico",
+    icon: "https://evansh.pages.dev/favicon.ico",
     fallbackIcon: Flame,
     colorClass: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50",
     topBorder: "bg-rose-500"
@@ -72,16 +69,16 @@ const staticApps = [
     name: "Adoração Shalom",
     url: "https://adora-o-shalom.pages.dev",
     description: "Reserva de capela, adoração perpétua e vigílias.",
-    icon: "/icons/adora-shalom.ico",
+    icon: "https://adora-o-shalom.pages.dev/favicon.ico",
     fallbackIcon: Heart,
     colorClass: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/50",
     topBorder: "bg-indigo-500"
   },
   {
     name: "Cifras Shalom",
-    url: "https://cifras-sh.pages.dev",
+    url: "https://cifra-sh.pages.dev",
     description: "Repositório litúrgico de partituras e cifras de louvores.",
-    icon: "/icons/cifras-shalom.ico",
+    icon: "https://cifra-sh.pages.dev/favicon.ico",
     fallbackIcon: Music,
     colorClass: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-900/50",
     topBorder: "bg-violet-500"
@@ -90,7 +87,7 @@ const staticApps = [
     name: "WOP Shalom",
     url: "https://wopsh.pages.dev",
     description: "Portal de formação, ministérios e escalas pastorais.",
-    icon: "/icons/wop-shalom.ico",
+    icon: "https://wopsh.pages.dev/favicon.ico",
     fallbackIcon: Users,
     colorClass: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/50",
     topBorder: "bg-orange-500"
@@ -105,18 +102,46 @@ export default function App() {
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [failedIcons, setFailedIcons] = useState<Record<string, boolean>>({});
 
-  // Form states
-  const [demoEmail, setDemoEmail] = useState("");
-  const [regName, setRegName] = useState("");
-  const [regRole, setRegRole] = useState("Membro");
-  const [registering, setRegistering] = useState(false);
-
   // Modals state
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPWAModal, setShowPWAModal] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
-  // Hook unificado para instalação de PWA
-  const { isInstallable, isInstalled } = useInstallPrompt();
+  // Escutar prompt de instalação do PWA
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallPrompt(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    // Se já estiver rodando como app autônomo (instalado), ocultar botão/indicadores
+    if (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone) {
+      setShowInstallPrompt(false);
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+      // Se não houver prompt nativo (ex: iOS Safari ou navegadores sem suporte), abriremos o modal explicativo
+      setShowPWAModal(true);
+      return;
+    }
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`Resposta do usuário para instalação: ${outcome}`);
+    
+    setDeferredPrompt(null);
+    setShowInstallPrompt(false);
+  };
 
   // Verify and fetch active sessions on mount
   const checkSession = async () => {
@@ -124,28 +149,7 @@ export default function App() {
       // Check localStorage for saved simulation session
       const saved = localStorage.getItem("portal_shalom_demo_session");
       if (saved) {
-        const parsed = JSON.parse(saved);
-        // Check if mock profile exists
-        const mockProfilesStr = localStorage.getItem("portal_shalom_mock_profiles") || "[]";
-        const mockProfiles = JSON.parse(mockProfilesStr);
-        const matched = mockProfiles.find((p: any) => p.email.toLowerCase() === parsed.email.toLowerCase());
-        
-        if (matched) {
-          const parts = matched.full_name.split(" | ");
-          const name = parts[0];
-          const role = parts[1] || "Membro";
-          setSession({
-            ...parsed,
-            name,
-            role,
-            isRegistered: true
-          });
-        } else {
-          setSession({
-            ...parsed,
-            isRegistered: false
-          });
-        }
+        setSession(JSON.parse(saved));
       }
       return;
     }
@@ -154,43 +158,13 @@ export default function App() {
       if (error) throw error;
 
       if (sbSession?.user) {
-        const userEmail = sbSession.user.email || "";
-        const defaultName = sbSession.user.user_metadata?.full_name || sbSession.user.user_metadata?.name || userEmail.split("@")[0] || "Membro Shalom";
-        
-        // Fetch profiles table from Supabase
-        const { data: profile, error: profileErr } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("email", userEmail)
-          .maybeSingle();
-
-        if (profileErr) {
-          console.error("Erro ao carregar perfil do Supabase:", profileErr);
-        }
-
-        if (profile) {
-          const parts = profile.full_name.split(" | ");
-          const name = parts[0] || defaultName;
-          const role = parts[1] || "Membro";
-          setSession({
-            email: userEmail,
-            name,
-            role,
-            isRegistered: true,
-            avatarUrl: sbSession.user.user_metadata?.avatar_url,
-            token: sbSession.access_token,
-            isMock: false
-          });
-        } else {
-          setSession({
-            email: userEmail,
-            name: defaultName,
-            avatarUrl: sbSession.user.user_metadata?.avatar_url,
-            token: sbSession.access_token,
-            isMock: false,
-            isRegistered: false
-          });
-        }
+        setSession({
+          email: sbSession.user.email || "",
+          name: sbSession.user.user_metadata?.full_name || sbSession.user.user_metadata?.name || sbSession.user.email?.split("@")[0] || "Membro Shalom",
+          avatarUrl: sbSession.user.user_metadata?.avatar_url,
+          token: sbSession.access_token,
+          isMock: false
+        });
       } else {
         setSession(null);
       }
@@ -210,12 +184,12 @@ export default function App() {
     const handleOAuthMessage = (event: MessageEvent) => {
       const origin = event.origin;
       // Allow current origin
-      if (!origin.endsWith(".run.app") && !origin.includes("localhost") && !origin.includes("supabase.co")) {
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('supabase.co')) {
         return;
       }
       if (event.data?.type === "SUPABASE_AUTH_SUCCESS") {
         checkSession().then(() => {
-          setSuccess("Login efetuado com sucesso!");
+          setSuccess("Login efetuado com sucesso via Supabase!");
           setTimeout(() => setSuccess(null), 4000);
         });
       }
@@ -244,52 +218,15 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, sbSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sbSession) => {
       if (sbSession?.user) {
-        const userEmail = sbSession.user.email || "";
-        const defaultName = sbSession.user.user_metadata?.full_name || sbSession.user.user_metadata?.name || userEmail.split("@")[0] || "Membro Shalom";
-        
-        try {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("email", userEmail)
-            .maybeSingle();
-
-          if (profile) {
-            const parts = profile.full_name.split(" | ");
-            const name = parts[0] || defaultName;
-            const role = parts[1] || "Membro";
-            setSession({
-              email: userEmail,
-              name,
-              role,
-              isRegistered: true,
-              avatarUrl: sbSession.user.user_metadata?.avatar_url,
-              token: sbSession.access_token,
-              isMock: false
-            });
-          } else {
-            setSession({
-              email: userEmail,
-              name: defaultName,
-              avatarUrl: sbSession.user.user_metadata?.avatar_url,
-              token: sbSession.access_token,
-              isMock: false,
-              isRegistered: false
-            });
-          }
-        } catch (err) {
-          console.error("Erro ao carregar perfil na mudança de estado de autenticação:", err);
-          setSession({
-            email: userEmail,
-            name: defaultName,
-            avatarUrl: sbSession.user.user_metadata?.avatar_url,
-            token: sbSession.access_token,
-            isMock: false,
-            isRegistered: false
-          });
-        }
+        setSession({
+          email: sbSession.user.email || "",
+          name: sbSession.user.user_metadata?.full_name || sbSession.user.user_metadata?.name || sbSession.user.email?.split("@")[0] || "Membro Shalom",
+          avatarUrl: sbSession.user.user_metadata?.avatar_url,
+          token: sbSession.access_token,
+          isMock: false
+        });
       } else {
         setSession(null);
       }
@@ -299,175 +236,6 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
-
-  const getAppAccessLevel = (appUrl: string): "Admin" | "Coordenador" | "Membro" => {
-    const urlLower = appUrl.toLowerCase();
-    // Gestão Pro, EVANSH, PA, and PO require Coordinator or Admin permissions
-    if (urlLower.includes("pa-shalom") || urlLower.includes("poshalom") || urlLower.includes("gest-opro") || urlLower.includes("evansh")) {
-      return "Coordenador";
-    }
-    return "Membro";
-  };
-
-  const checkAppPermission = (appUrl: string, userRole?: string): boolean => {
-    const role = userRole || "Membro";
-    if (role === "Administrador") return true;
-    
-    const required = getAppAccessLevel(appUrl);
-    if (required === "Coordenador") {
-      return role === "Coordenador";
-    }
-    return true; // Membro level app, anyone can access
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regName.trim()) {
-      setError("Por favor, insira o seu nome completo.");
-      return;
-    }
-    setRegistering(true);
-    setError(null);
-
-    const fullCombinedName = `${regName.trim()} | ${regRole}`;
-
-    if (!supabase || session?.isMock) {
-      // Mock local storage registration
-      try {
-        const mockProfilesStr = localStorage.getItem("portal_shalom_mock_profiles") || "[]";
-        const mockProfiles = JSON.parse(mockProfilesStr);
-        
-        // Remove old entry if exists and push new
-        const updatedProfiles = mockProfiles.filter((p: any) => p.email.toLowerCase() !== session?.email.toLowerCase());
-        updatedProfiles.push({
-          id: Math.random().toString(36).substring(2),
-          email: session?.email || "mock@example.com",
-          full_name: fullCombinedName,
-          created_at: new Date().toISOString()
-        });
-        
-        localStorage.setItem("portal_shalom_mock_profiles", JSON.stringify(updatedProfiles));
-        
-        // Update session state
-        if (session) {
-          const updatedSession = {
-            ...session,
-            name: regName.trim(),
-            role: regRole,
-            isRegistered: true
-          };
-          setSession(updatedSession);
-          localStorage.setItem("portal_shalom_demo_session", JSON.stringify(updatedSession));
-        }
-        
-        setSuccess("Cadastro realizado com sucesso (Simulação)!");
-        setTimeout(() => setSuccess(null), 3500);
-      } catch (err: any) {
-        setError("Erro ao salvar cadastro de simulação: " + err.message);
-      } finally {
-        setRegistering(false);
-      }
-      return;
-    }
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado no Supabase.");
-
-      // Check if profile exists to do either update or insert
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("email", user.email)
-        .maybeSingle();
-
-      let resultError;
-      if (existingProfile) {
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            full_name: fullCombinedName
-          })
-          .eq("email", user.email);
-        resultError = error;
-      } else {
-        const { error } = await supabase
-          .from("profiles")
-          .insert({
-            id: user.id,
-            email: user.email,
-            full_name: fullCombinedName
-          });
-        resultError = error;
-      }
-
-      if (resultError) throw resultError;
-
-      // Update session state
-      if (session) {
-        setSession({
-          ...session,
-          name: regName.trim(),
-          role: regRole,
-          isRegistered: true
-        });
-      }
-      
-      setSuccess("Cadastro realizado com sucesso!");
-      setTimeout(() => setSuccess(null), 3500);
-    } catch (err: any) {
-      console.error("Erro ao realizar cadastro no banco:", err);
-      setError("Não foi possível salvar o cadastro: " + (err.message || "Erro de permissão no Supabase"));
-    } finally {
-      setRegistering(false);
-    }
-  };
-
-  const handleDemoLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const emailTrimmed = demoEmail.trim().toLowerCase();
-    if (!emailTrimmed) {
-      setError("Por favor, insira um e-mail válido.");
-      return;
-    }
-
-    setError(null);
-    const mockSession = {
-      email: emailTrimmed,
-      name: emailTrimmed.split("@")[0],
-      isMock: true,
-      token: "mock_session_token_" + Math.random().toString(36).substring(7)
-    };
-
-    localStorage.setItem("portal_shalom_demo_session", JSON.stringify(mockSession));
-    
-    // Check if registered
-    const mockProfilesStr = localStorage.getItem("portal_shalom_mock_profiles") || "[]";
-    const mockProfiles = JSON.parse(mockProfilesStr);
-    const matched = mockProfiles.find((p: any) => p.email.toLowerCase() === emailTrimmed);
-
-    if (matched) {
-      const parts = matched.full_name.split(" | ");
-      const name = parts[0];
-      const role = parts[1] || "Membro";
-      setSession({
-        ...mockSession,
-        name,
-        role,
-        isRegistered: true
-      });
-      setSuccess(`Bem-vindo de volta, ${name}!`);
-    } else {
-      setSession({
-        ...mockSession,
-        isRegistered: false
-      });
-      setRegName(emailTrimmed.split("@")[0]);
-      setRegRole("Membro");
-      setSuccess("E-mail não cadastrado. Preencha o cadastro abaixo.");
-    }
-    setTimeout(() => setSuccess(null), 3500);
-  };
 
   const handleGoogleLogin = async () => {
     setError(null);
@@ -513,20 +281,8 @@ export default function App() {
     }
   };
 
-  const handleAccessApp = async (appUrl: string, appName: string) => {
-    // 1. Enforce registration check
-    if (!session || !session.isRegistered) {
-      setError("Acesso Negado! Você precisa preencher o cadastro do Portal Shalom antes de acessar os aplicativos.");
-      return;
-    }
-
-    // 2. Enforce access authorization
-    if (session && !checkAppPermission(appUrl, session.role)) {
-      setError(`Acesso Negado! Seu nível de acesso (${session.role || "Membro"}) não tem permissão para acessar o "${appName}". Fale com seu coordenador se precisar deste acesso.`);
-      return;
-    }
-
-    if (!supabase || session?.isMock) {
+  const handleAccessApp = async (appUrl: string) => {
+    if (!supabase) {
       const fallbackToken = session?.token || "mock_access_token";
       const fallbackRefresh = "mock_refresh_token";
       const destinationUrl = `${appUrl}#access_token=${fallbackToken}&refresh_token=${fallbackRefresh}`;
@@ -535,42 +291,6 @@ export default function App() {
     }
 
     try {
-      setSuccess(`Iniciando login SSO seguro para "${appName}"...`);
-      
-      // Map appUrl to appId in the backend configuration
-      let appId = "";
-      const urlLower = appUrl.toLowerCase();
-      if (urlLower.includes("pa-shalom")) appId = "pashalom";
-      else if (urlLower.includes("poshalom")) appId = "poshalom";
-      else if (urlLower.includes("gest-opro")) appId = "gestopro";
-      else if (urlLower.includes("evansh")) appId = "evansh";
-      else if (urlLower.includes("adora-o-shalom")) appId = "adoracaoshalom";
-      else if (urlLower.includes("cifras-sh")) appId = "cifrash";
-      else if (urlLower.includes("wopsh")) appId = "wopsh";
-
-      if (appId) {
-        // Fetch actionLink via secure backend generate-link endpoint
-        const response = await fetch("/api/sso/generate-link", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.token}`
-          },
-          body: JSON.stringify({ appId })
-        });
-
-        const data = await response.json();
-        if (response.ok && data.actionLink) {
-          setSuccess(`Acesso seguro SSO autorizado para ${appName}!`);
-          setTimeout(() => setSuccess(null), 3500);
-          window.open(data.actionLink, "_blank", "noopener,noreferrer");
-          return;
-        } else {
-          console.warn("SSO via backend indisponível ou chaves ausentes. Usando redirect padrão:", data.error);
-        }
-      }
-
-      // Default redirect fallback
       const { data, error } = await supabase.auth.getSession();
       if (error) {
         console.error("Erro ao obter sessão:", error);
@@ -585,7 +305,6 @@ export default function App() {
         const destinationUrl = `${appUrl}#access_token=${fallbackToken}&refresh_token=${fallbackRefresh}`;
         window.open(destinationUrl, "_blank", "noopener,noreferrer");
       }
-      setTimeout(() => setSuccess(null), 1500);
     } catch (err) {
       console.error("Erro ao redirecionar com SSO:", err);
       window.open(appUrl, "_blank", "noopener,noreferrer");
@@ -665,26 +384,21 @@ export default function App() {
 
           <div className="flex items-center gap-2 sm:gap-4">
             {/* PWA INSTALL BUTTON */}
-            <InstallButton variant="header" onClick={() => setShowPWAModal(true)} />
+            <button
+              onClick={handleInstallClick}
+              className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50 flex items-center gap-1.5 px-3 h-9 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-all cursor-pointer shadow-xs active:scale-95"
+              id="pwa-install-button"
+              title="Instalar Portal Shalom como Aplicativo no seu dispositivo"
+            >
+              <Download size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>Instalar App</span>
+            </button>
 
             {session ? (
               <div className="flex items-center gap-3">
-                <div className="hidden sm:flex flex-col items-end justify-center">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-semibold text-slate-950 dark:text-white max-w-[150px] truncate">{session.name}</p>
-                    {session.role && (
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${
-                        session.role === "Administrador" 
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50"
-                          : session.role === "Coordenador"
-                            ? "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50"
-                            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50"
-                      }`}>
-                        {session.role}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 max-w-[150px] truncate font-mono mt-0.5">{session.email}</p>
+                <div className="hidden sm:block text-right">
+                  <p className="text-xs font-semibold text-slate-950 dark:text-white max-w-[150px] truncate">{session.name}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 max-w-[150px] truncate font-mono">{session.email}</p>
                 </div>
                 {session.avatarUrl ? (
                   <img 
@@ -777,49 +491,11 @@ export default function App() {
                   </button>
 
                   {!isSupabaseConfigured && (
-                    <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 rounded-xl p-3 text-left">
-                        <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
-                          <span className="font-semibold block mb-0.5">Modo de Demonstração Ativo:</span>
-                          O Supabase principal não está configurado. Insira um e-mail abaixo para simular o login, o controle de permissões por cargo e a tela de cadastro.
-                        </p>
-                      </div>
-
-                      <form onSubmit={handleDemoLogin} className="space-y-3 text-left">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-wider">E-mail para Simulação</label>
-                          <input
-                            type="email"
-                            placeholder="exemplo@shalom.org"
-                            required
-                            value={demoEmail}
-                            onChange={(e) => setDemoEmail(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 text-slate-800 dark:text-white"
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          className="w-full h-10 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
-                        >
-                          Entrar com E-mail (Simulação)
-                        </button>
-                      </form>
-                    </div>
-                  )}
-
-                  {/* Option B: PWA Install on phone callout */}
-                  {!isInstalled && (
-                    <div className="p-3 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 dark:border-amber-500/20 rounded-2xl flex items-center justify-between gap-3 text-left">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                          <Smartphone size={16} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-900 dark:text-white">Instalar no Celular</p>
-                          <p className="text-[10px] text-slate-400 font-mono">Acesse na tela inicial com um toque</p>
-                        </div>
-                      </div>
-                      <InstallButton variant="header" onClick={() => setShowPWAModal(true)} />
+                    <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-left mt-4">
+                      <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                        <span className="font-semibold block mb-1">Configuração pendente:</span>
+                        As credenciais do Supabase principal para o login não foram detectadas no ambiente. Para ativar o login real com Google, configure as chaves <code className="font-mono bg-amber-500/15 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> e <code className="font-mono bg-amber-500/15 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code>.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -830,92 +506,8 @@ export default function App() {
                 </div>
               </div>
             </motion.div>
-          ) : !session.isRegistered ? (
-            /* 2A. REGISTRATION SCREEN (IF LOGGED IN BUT NOT REGISTERED IN TABLE) */
-            <motion.div
-              key="registration-screen"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              className="max-w-md w-full mx-auto py-6"
-              id="registration-card-container"
-            >
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-xl relative overflow-hidden text-left">
-                {/* Visual Accent */}
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
-                
-                <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-5">
-                  <UserCheck size={24} />
-                </div>
-                
-                <h2 className="font-display font-bold text-xl text-slate-900 dark:text-white tracking-tight mb-2">
-                  Complete seu Cadastro
-                </h2>
-                <p className="text-slate-500 dark:text-slate-400 text-xs mb-6">
-                  Olá! Identificamos que seu e-mail <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{session.email}</span> ainda não está registrado no sistema do Portal Shalom. Por favor, complete seu cadastro abaixo para obter seu nível de acesso.
-                </p>
-
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wider">E-mail de Login</label>
-                    <input
-                      type="text"
-                      disabled
-                      value={session.email}
-                      className="w-full h-11 px-3 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-500 cursor-not-allowed"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wider">Nome Completo</label>
-                    <input
-                      type="text"
-                      placeholder="Insira seu nome completo"
-                      required
-                      value={regName}
-                      onChange={(e) => setRegName(e.target.value)}
-                      className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 text-slate-800 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wider">Cargo / Função na Missão</label>
-                    <select
-                      value={regRole}
-                      onChange={(e) => setRegRole(e.target.value)}
-                      className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 text-slate-800 dark:text-white"
-                    >
-                      <option value="Membro">Membro da Obra / Comunidade</option>
-                      <option value="Coordenador">Coordenador de Setor / Célula</option>
-                      <option value="Administrador">Administrador de Sistemas</option>
-                    </select>
-                    <p className="text-[10px] text-slate-400 mt-1.5 italic">
-                      * Nota: O seu cargo determina se você terá acesso livre ou restrito aos aplicativos internos (ex: PA, PO e Gestão Pro requerem nível Coordenador ou Admin).
-                    </p>
-                  </div>
-
-                  <div className="pt-2 flex gap-3">
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-colors cursor-pointer text-center"
-                    >
-                      Voltar / Sair
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={registering}
-                      className="flex-[2] h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      {registering ? "Registrando..." : "Confirmar Cadastro"}
-                      <Check size={14} />
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </motion.div>
           ) : (
-            /* 2B. THE MAIN PORTAL LAUNCHER GRID */
+            /* 2. THE MAIN PORTAL LAUNCHER GRID */
             <motion.div
               key="main-portal"
               initial={{ opacity: 0 }}
@@ -941,39 +533,11 @@ export default function App() {
                 </div>
               </div>
 
-              {/* MOBILE INSTALL BANNER */}
-              {!isInstalled && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4"
-                >
-                  <div className="flex items-center gap-3.5 text-center sm:text-left">
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center shadow-md shadow-amber-500/10 shrink-0">
-                      <Smartphone size={20} className="text-white" />
-                    </div>
-                    <div>
-                      <h4 className="font-display font-bold text-sm text-slate-900 dark:text-white">
-                        Instalar o Portal Shalom no seu celular
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        Adicione o Portal Shalom à tela inicial para carregamento instantâneo e acesso fácil como aplicativo nativo.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="w-full sm:w-auto shrink-0">
-                    <InstallButton variant="banner" onClick={() => setShowPWAModal(true)} />
-                  </div>
-                </motion.div>
-              )}
-
               {/* STAGGERED APP GRID CARDS */}
               <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6" id="apps-grid">
                 {staticApps.map((app, index) => {
                   const FallbackIcon = app.fallbackIcon;
                   const hasImageFailed = failedIcons[app.name];
-                  const hasPermission = checkAppPermission(app.url, session?.role);
-                  const reqAccessLevel = getAppAccessLevel(app.url);
 
                   return (
                     <motion.div
@@ -981,9 +545,7 @@ export default function App() {
                       initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative pt-6 sm:pt-8 overflow-hidden ${
-                        !hasPermission ? "opacity-75 dark:opacity-70" : ""
-                      }`}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative pt-6 sm:pt-8 overflow-hidden"
                     >
                       {/* Top colored border accent */}
                       <div className={`absolute top-0 left-0 right-0 h-1.5 ${app.topBorder}`} />
@@ -992,38 +554,29 @@ export default function App() {
                         {/* Top Indicator */}
                         <div className="flex items-center justify-between mb-4">
                           {/* App Icon / Logo Wrapper */}
-                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
-                            {hasImageFailed ? (
+                          {hasImageFailed ? (
+                            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
                               <FallbackIcon size={20} className="sm:w-5 sm:h-5" />
-                            ) : (
-                              <img
-                                src={app.icon}
-                                alt={app.name}
-                                onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
-                                className="w-8 h-8 object-contain"
-                                referrerPolicy="no-referrer"
-                              />
-                            )}
-                          </div>
-
-                          {/* Connection / Permission indicator */}
-                          {hasPermission ? (
-                            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium leading-none text-emerald-600 dark:text-emerald-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              <span>Acesso Liberado</span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold leading-none text-amber-600 dark:text-amber-400 bg-amber-500/5 px-1.5 py-1 rounded-md border border-amber-500/10">
-                              <Lock size={10} className="shrink-0" />
-                              <span>Requer {reqAccessLevel}</span>
-                            </div>
+                            <img
+                              src={app.icon}
+                              alt={app.name}
+                              onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-800"
+                              referrerPolicy="no-referrer"
+                            />
                           )}
+
+                          {/* Connection indicator */}
+                          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium leading-none text-emerald-600 dark:text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Ativo</span>
+                          </div>
                         </div>
 
                         {/* Title & Description */}
-                        <h3 className={`font-display font-bold text-sm sm:text-lg text-slate-900 dark:text-white transition-colors ${
-                          hasPermission ? "group-hover:text-amber-500" : ""
-                        }`}>
+                        <h3 className="font-display font-bold text-sm sm:text-lg text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
                           {app.name}
                         </h3>
                         <p className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs mt-1.5 leading-relaxed min-h-[44px] sm:min-h-[40px] line-clamp-2">
@@ -1039,23 +592,13 @@ export default function App() {
 
                       {/* Action Link/Button */}
                       <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
-                        {hasPermission ? (
-                          <button
-                            onClick={() => handleAccessApp(app.url, app.name)}
-                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer"
-                          >
-                            <span>Acessar App</span>
-                            <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
-                          </button>
-                        ) : (
-                          <button
-                            disabled
-                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-100 dark:bg-slate-950 text-slate-400 dark:text-slate-600 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed border border-slate-200/50 dark:border-slate-800/50"
-                          >
-                            <Lock size={12} />
-                            <span>Acesso Restrito</span>
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleAccessApp(app.url)}
+                          className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer"
+                        >
+                          <span>Acessar App</span>
+                          <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                        </button>
                       </div>
                     </motion.div>
                   );
@@ -1110,18 +653,6 @@ export default function App() {
               </div>
 
               <div className="space-y-4">
-                {window.self !== window.top && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs text-amber-800 dark:text-amber-300 flex flex-col gap-1">
-                    <span className="font-bold flex items-center gap-1">
-                      <AlertCircle size={14} className="text-amber-600 dark:text-amber-400" />
-                      Visualização Limitada (iFrame)
-                    </span>
-                    <p className="leading-relaxed">
-                      Você está visualizando o Portal dentro do painel do AI Studio. Navegadores bloqueiam instalações de PWA dentro de frames. Clique no botão de <strong>abrir em nova aba</strong> ou acesse a URL diretamente para instalar no seu aparelho.
-                    </p>
-                  </div>
-                )}
-
                 <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   O Portal Shalom é um aplicativo web completo (PWA). Você pode instalá-lo em seu celular, tablet ou computador para acessá-lo como um aplicativo nativo diretamente da sua tela inicial com carregamento instantâneo.
                 </div>

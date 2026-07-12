@@ -113,36 +113,6 @@ async function startServer() {
         return res.status(401).json({ error: "Usuário não autenticado ou sessão expirada no Portal Shalom." });
       }
 
-      // 1. Fetch user profile from Portal Shalom database
-      const { data: profile, error: profileErr } = await portalClient
-        .from("profiles")
-        .select("*")
-        .eq("email", user.email)
-        .maybeSingle();
-
-      if (profileErr) {
-        console.error("Erro ao carregar perfil do Portal Shalom:", profileErr);
-      }
-
-      if (!profile) {
-        return res.status(400).json({ error: "Você ainda não possui cadastro no Portal Shalom. Por favor, registre-se primeiro." });
-      }
-
-      // Extract name and role from Portal's profiles
-      const parts = profile.full_name.split(" | ");
-      const name = parts[0] || user.email.split("@")[0];
-      const role = parts[1] || "Membro";
-
-      // 2. Enforce server-side authorization checks based on Portal role
-      const appRoleRequired = 
-        (appId === "pashalom" || appId === "poshalom" || appId === "gestopro" || appId === "evansh") 
-          ? "Coordenador" 
-          : "Membro";
-
-      if (role !== "Administrador" && appRoleRequired === "Coordenador" && role !== "Coordenador") {
-        return res.status(403).json({ error: `Acesso Negado: Este aplicativo requer nível de acesso Coordenador ou Administrador. Seu cargo atual é: ${role}.` });
-      }
-
       // Initialize Target App's Supabase with its Service Role Key
       const targetSupabase = createClient(targetUrl, targetServiceKey, {
         auth: {
@@ -151,69 +121,12 @@ async function startServer() {
         }
       });
 
-      // 3. Synchronize user and role to target Supabase Auth and database
-      try {
-        // Find if user already exists in target Supabase Auth
-        const { data: userListData } = await targetSupabase.auth.admin.listUsers() as any;
-        const userData = userListData?.users?.find((u: any) => u.email?.toLowerCase() === user.email?.toLowerCase());
-        
-        if (userData) {
-          // Update existing user metadata with their correct full_name (Name | Role)
-          await targetSupabase.auth.admin.updateUserById(userData.id, {
-            user_metadata: { 
-              full_name: profile.full_name,
-              name: name,
-              role: role
-            }
-          });
-        } else {
-          // Create new user with verified email and correct metadata in target Supabase Auth
-          await targetSupabase.auth.admin.createUser({
-            email: user.email,
-            email_confirm: true,
-            user_metadata: { 
-              full_name: profile.full_name,
-              name: name,
-              role: role
-            }
-          });
-        }
-
-        // Also synchronize target database "profiles" table if it exists
-        await targetSupabase
-          .from("profiles")
-          .upsert({
-            id: user.id,
-            email: user.email,
-            full_name: profile.full_name,
-            cargo: role,
-            role: role,
-            name: name,
-            updated_at: new Date().toISOString()
-          }, { onConflict: "email" })
-          .then(async ({ error }) => {
-            if (error) {
-              // Try fallback upsert with fewer columns in case of schema difference
-              await targetSupabase.from("profiles").upsert({
-                id: user.id,
-                email: user.email,
-                full_name: profile.full_name
-              }, { onConflict: "email" });
-            }
-          });
-      } catch (syncErr: any) {
-        console.error(`Erro ao sincronizar perfil para o app ${appId}:`, syncErr.message);
-      }
-
       // Generate a magiclink login link for the user's verified email
       const { data: linkData, error: linkError } = await targetSupabase.auth.admin.generateLink({
         type: "magiclink",
         email: user.email,
         options: {
-          redirectTo: config.defaultUrl,
-          data: {
-            full_name: profile.full_name
-          }
+          redirectTo: config.defaultUrl
         }
       });
 

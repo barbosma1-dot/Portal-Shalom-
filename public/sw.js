@@ -1,19 +1,9 @@
-const CACHE_NAME = 'portal-shalom-v3';
+const CACHE_NAME = 'portal-shalom-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon.ico',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/logo-shalom.webp',
-  '/icons/adora-shalom.ico',
-  '/icons/cifras-shalom.ico',
-  '/icons/evang-shalom.ico',
-  '/icons/gest-pro.ico',
-  '/icons/pa-shalom.ico',
-  '/icons/po-shalom.ico',
-  '/icons/wop-shalom.ico'
+  '/icon.jpg'
 ];
 
 // Install event - caching basic resources
