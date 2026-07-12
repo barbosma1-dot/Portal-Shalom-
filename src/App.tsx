@@ -107,24 +107,38 @@ export default function App() {
   const [showPWAModal, setShowPWAModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
 
-  // Escutar prompt de instalação do PWA
+  // Escutar prompt de instalação do PWA e estado de instalado
   useEffect(() => {
+    const checkInstalled = () => {
+      const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone;
+      setIsInstalled(!!standalone);
+      if (standalone) {
+        setShowInstallPrompt(false);
+      }
+    };
+
+    checkInstalled();
+
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setShowInstallPrompt(true);
     };
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-    // Se já estiver rodando como app autônomo (instalado), ocultar botão/indicadores
-    if (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone) {
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
       setShowInstallPrompt(false);
-    }
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, []);
 
@@ -384,15 +398,17 @@ export default function App() {
 
           <div className="flex items-center gap-2 sm:gap-4">
             {/* PWA INSTALL BUTTON */}
-            <button
-              onClick={handleInstallClick}
-              className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50 flex items-center gap-1.5 px-3 h-9 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-all cursor-pointer shadow-xs active:scale-95"
-              id="pwa-install-button"
-              title="Instalar Portal Shalom como Aplicativo no seu dispositivo"
-            >
-              <Download size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
-              <span>Instalar App</span>
-            </button>
+            {!isInstalled && (
+              <button
+                onClick={handleInstallClick}
+                className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50 flex items-center gap-1.5 px-3 h-9 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-all cursor-pointer shadow-xs active:scale-95"
+                id="pwa-install-button"
+                title="Instalar Portal Shalom como Aplicativo no seu dispositivo"
+              >
+                <Download size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Instalar App</span>
+              </button>
+            )}
 
             {session ? (
               <div className="flex items-center gap-3">
@@ -498,6 +514,27 @@ export default function App() {
                       </p>
                     </div>
                   )}
+
+                  {/* Option B: PWA Install on phone callout */}
+                  {!isInstalled && (
+                    <div className="p-3 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 dark:border-amber-500/20 rounded-2xl flex items-center justify-between gap-3 text-left">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                          <Smartphone size={16} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-900 dark:text-white">Instalar no Celular</p>
+                          <p className="text-[10px] text-slate-400 font-mono">Acesse na tela inicial com um toque</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={handleInstallClick}
+                        className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline px-2.5 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors cursor-pointer"
+                      >
+                        Instalar
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-center gap-1">
@@ -532,6 +569,36 @@ export default function App() {
                   </p>
                 </div>
               </div>
+
+              {/* MOBILE INSTALL BANNER */}
+              {!isInstalled && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-3.5 text-center sm:text-left">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center shadow-md shadow-amber-500/10 shrink-0">
+                      <Smartphone size={20} className="text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-display font-bold text-sm text-slate-900 dark:text-white">
+                        Instalar o Portal Shalom no seu celular
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Adicione o Portal Shalom à tela inicial para carregamento instantâneo e acesso fácil como aplicativo nativo.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleInstallClick}
+                    className="w-full sm:w-auto px-5 h-9 sm:h-10 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
+                  >
+                    <Download size={13} />
+                    <span>Instalar Aplicativo</span>
+                  </button>
+                </motion.div>
+              )}
 
               {/* STAGGERED APP GRID CARDS */}
               <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6" id="apps-grid">
