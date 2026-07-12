@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PA Shalom</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0273c7" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="PA Shalom" />
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=PS&background=0273c7&color=fff&size=180&font-size=0.5&bold=true" />
+    <script>
+      (function() {
+        // Proactive Service Worker and Cache cleanup to prevent offline-first hijack in development
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            if (registrations.length > 0) {
+              console.log('Unregistering active service workers to fix cache hijacking...');
+              for (var i = 0; i < registrations.length; i++) {
+                registrations[i].unregister();
+              }
+              if ('caches' in window) {
+                caches.keys().then(function(names) {
+                  for (var name of names) {
+                    caches.delete(name);
+                  }
+                });
+              }
+              setTimeout(function() {
+                window.location.reload();
+              }, 400);
+            }
+          });
+        }
+
+        function showFatalError(title, msg, stack) {
+          console.error("FATAL:", title, msg, stack);
+          var interval = setInterval(function() {
+            var root = document.getElementById('root');
+            if (root) {
+              clearInterval(interval);
+              root.innerHTML = '<div style="padding: 24px; color: #991b1b; background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 40px auto; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);"><h1 style="font-size: 20px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">❌ ' + title + '</h1><p style="margin-bottom: 16px; font-weight: 500; font-size: 14px;">' + msg + '</p><pre style="background: #f8fafc; padding: 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; font-family: monospace; overflow-x: auto; white-space: pre-wrap; color: #334155; line-height: 1.5; text-align: left;">' + (stack || "No stack trace available.") + '</pre><button onclick="window.location.reload()" style="background-color: #dc2626; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px;">Recarregar</button></div>';
+            }
+          }, 50);
+        }
+        window.addEventListener('error', function(e) {
+          showFatalError('Erro não tratado', e.message, e.error ? e.error.stack : null);
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+          var reason = e.reason || {};
+          showFatalError('Rejeição de Promessa', reason.message || String(reason), reason.stack || null);
+        });
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-DlLkZIdC.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-IwRrwtt6.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+

@@ -3,7 +3,17 @@ const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icon.jpg'
+  '/favicon.ico',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/logo-shalom.webp',
+  '/icons/adora-shalom.ico',
+  '/icons/cifras-shalom.ico',
+  '/icons/evang-shalom.ico',
+  '/icons/gest-pro.ico',
+  '/icons/pa-shalom.ico',
+  '/icons/po-shalom.ico',
+  '/icons/wop-shalom.ico'
 ];
 
 // Install event - caching basic resources

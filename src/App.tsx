@@ -33,7 +33,7 @@ const staticApps = [
     name: "PA Shalom",
     url: "https://pa-shalom.pages.dev",
     description: "Planejamento Apostólico e células da comunidade Shalom.",
-    icon: "https://pa-shalom.pages.dev/favicon.ico",
+    icon: "/icons/pa-shalom.ico",
     fallbackIcon: Church,
     colorClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50",
     topBorder: "bg-blue-500"
@@ -42,7 +42,7 @@ const staticApps = [
     name: "PO Shalom",
     url: "https://poshalom.pages.dev",
     description: "Planejamento Orçamentário e finanças da comunidade Shalom.",
-    icon: "https://poshalom.pages.dev/favicon.ico",
+    icon: "/icons/po-shalom.ico",
     fallbackIcon: Users,
     colorClass: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50",
     topBorder: "bg-amber-500"
@@ -51,7 +51,7 @@ const staticApps = [
     name: "Gestão Pro",
     url: "https://gest-opro.pages.dev",
     description: "Gerenciador profissional de projetos, orçamentos e missões.",
-    icon: "https://gest-opro.pages.dev/favicon.ico",
+    icon: "/icons/gest-pro.ico",
     fallbackIcon: BarChart3,
     colorClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50",
     topBorder: "bg-emerald-500"
@@ -60,7 +60,7 @@ const staticApps = [
     name: "Evangelização Shalom",
     url: "https://evansh.pages.dev",
     description: "Ações de evangelização e acompanhamento de vocacionados.",
-    icon: "https://evansh.pages.dev/favicon.ico",
+    icon: "/icons/evang-shalom.ico",
     fallbackIcon: Flame,
     colorClass: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50",
     topBorder: "bg-rose-500"
@@ -69,7 +69,7 @@ const staticApps = [
     name: "Adoração Shalom",
     url: "https://adora-o-shalom.pages.dev",
     description: "Reserva de capela, adoração perpétua e vigílias.",
-    icon: "https://adora-o-shalom.pages.dev/favicon.ico",
+    icon: "/icons/adora-shalom.ico",
     fallbackIcon: Heart,
     colorClass: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/50",
     topBorder: "bg-indigo-500"
@@ -78,7 +78,7 @@ const staticApps = [
     name: "Cifras Shalom",
     url: "https://cifras-sh.pages.dev",
     description: "Repositório litúrgico de partituras e cifras de louvores.",
-    icon: "https://cifras-sh.pages.dev/favicon.ico",
+    icon: "/icons/cifras-shalom.ico",
     fallbackIcon: Music,
     colorClass: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-900/50",
     topBorder: "bg-violet-500"
@@ -87,7 +87,7 @@ const staticApps = [
     name: "WOP Shalom",
     url: "https://wopsh.pages.dev",
     description: "Portal de formação, ministérios e escalas pastorais.",
-    icon: "https://wopsh.pages.dev/favicon.ico",
+    icon: "/icons/wop-shalom.ico",
     fallbackIcon: Users,
     colorClass: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/50",
     topBorder: "bg-orange-500"

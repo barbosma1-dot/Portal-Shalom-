@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="manifest" href="/assets/manifest-BR3uKQSH.webmanifest" />
+    <link rel="apple-touch-icon" href="https://img.icons8.com/ios-filled/512/4f46e5/like--v1.png" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(reg => {
+            console.log('SW registrado!', reg);
+          }).catch(err => {
+            console.log('Erro no SW:', err);
+          });
+        });
+      }
+    </script>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="WOP Sh" />
+    <title>WOP Sh</title>
+    <script type="module" crossorigin src="/assets/index-IjaoyDd-.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-RrWFZ1MK.css">
+  </head>
+  <body style="margin: 0; background: #f9fafb;">
+    <div id="root"></div>
+  </body>
+</html>
