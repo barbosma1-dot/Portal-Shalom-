@@ -15,4 +15,6 @@ export interface UserSession {
   avatarUrl?: string;
   token?: string;
   isMock?: boolean;
+  isRegistered?: boolean;
+  role?: string;
 }
