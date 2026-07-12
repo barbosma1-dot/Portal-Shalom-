@@ -1,7 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const rawSupabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Clean up Supabase URL: remove trailing slashes and strip any trailing "/rest/v1"
+let supabaseUrl = (rawSupabaseUrl || "").trim();
+if (supabaseUrl) {
+  // Remove trailing slashes
+  supabaseUrl = supabaseUrl.replace(/\/+$/, "");
+  // Remove /rest/v1 if appended
+  if (supabaseUrl.endsWith("/rest/v1")) {
+    supabaseUrl = supabaseUrl.slice(0, -8);
+  }
+}
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl && 
