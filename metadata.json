@@ -1,0 +1,8 @@
+{
+  "name": "Portal Shalom",
+  "description": "Portal e launcher centralizador para os aplicativos da comunidade Shalom com SSO por link mágico.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
