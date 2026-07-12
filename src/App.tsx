@@ -31,9 +31,9 @@ import { CommunityApp, UserSession } from "./types";
 const staticApps = [
   {
     name: "PA Shalom",
-    url: "https://pashalom.pages.dev",
+    url: "https://pa-shalom.pages.dev",
     description: "Planejamento Apostólico e células da comunidade Shalom.",
-    icon: "https://pashalom.pages.dev/favicon.ico",
+    icon: "https://pa-shalom.pages.dev/favicon.ico",
     fallbackIcon: Church,
     colorClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50",
     topBorder: "bg-blue-500"
@@ -76,9 +76,9 @@ const staticApps = [
   },
   {
     name: "Cifras Shalom",
-    url: "https://cifra-sh.pages.dev",
+    url: "https://cifras-sh.pages.dev",
     description: "Repositório litúrgico de partituras e cifras de louvores.",
-    icon: "https://cifra-sh.pages.dev/favicon.ico",
+    icon: "https://cifras-sh.pages.dev/favicon.ico",
     fallbackIcon: Music,
     colorClass: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-900/50",
     topBorder: "bg-violet-500"
@@ -554,19 +554,19 @@ export default function App() {
                         {/* Top Indicator */}
                         <div className="flex items-center justify-between mb-4">
                           {/* App Icon / Logo Wrapper */}
-                          {hasImageFailed ? (
-                            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
+                            {hasImageFailed ? (
                               <FallbackIcon size={20} className="sm:w-5 sm:h-5" />
-                            </div>
-                          ) : (
-                            <img
-                              src={app.icon}
-                              alt={app.name}
-                              onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
-                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-800"
-                              referrerPolicy="no-referrer"
-                            />
-                          )}
+                            ) : (
+                              <img
+                                src={app.icon}
+                                alt={app.name}
+                                onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
+                                className="w-8 h-8 object-contain"
+                                referrerPolicy="no-referrer"
+                              />
+                            )}
+                          </div>
 
                           {/* Connection indicator */}
                           <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium leading-none text-emerald-600 dark:text-emerald-400">
