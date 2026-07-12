@@ -27,69 +27,75 @@ import {
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { CommunityApp, UserSession } from "./types";
 
-// Map string keys to Lucide Icon components
-const IconMap: Record<string, React.ComponentType<any>> = {
-  Church,
-  Music,
-  Users,
-  Flame,
-  Heart,
-  BarChart3,
-};
-
-// Frontend-only styling metadata for each app
-const localMetadata: Record<string, { description: string; iconName: string; colorClass: string; accentColor: string }> = {
-  pashalom: {
+// List of static applications
+const staticApps = [
+  {
+    name: "PA Shalom",
+    url: "https://pashalom.pages.dev",
     description: "Planejamento Apostólico e células da comunidade Shalom.",
-    iconName: "Church",
+    icon: Church,
     colorClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50",
-    accentColor: "#1d4ed8"
+    topBorder: "bg-blue-500"
   },
-  wopsh: {
-    description: "Portal de formação, ministérios e escalas pastorais.",
-    iconName: "Users",
+  {
+    name: "PO Shalom",
+    url: "https://poshalom.pages.dev",
+    description: "Planejamento Orçamentário e finanças da comunidade Shalom.",
+    icon: Users,
     colorClass: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50",
-    accentColor: "#b45309"
+    topBorder: "bg-amber-500"
   },
-  gestopro: {
+  {
+    name: "Gestão Pro",
+    url: "https://gest-opro.pages.dev",
     description: "Gerenciador profissional de projetos, orçamentos e missões.",
-    iconName: "BarChart3",
+    icon: BarChart3,
     colorClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50",
-    accentColor: "#047857"
+    topBorder: "bg-emerald-500"
   },
-  evansh: {
+  {
+    name: "Evangelização Shalom",
+    url: "https://evansh.pages.dev",
     description: "Ações de evangelização e acompanhamento de vocacionados.",
-    iconName: "Flame",
+    icon: Flame,
     colorClass: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50",
-    accentColor: "#be123c"
+    topBorder: "bg-rose-500"
   },
-  adoracaoshalom: {
+  {
+    name: "Adoração Shalom",
+    url: "https://adora-o-shalom.pages.dev",
     description: "Reserva de capela, adoração perpétua e vigílias.",
-    iconName: "Heart",
+    icon: Heart,
     colorClass: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/50",
-    accentColor: "#4338ca"
+    topBorder: "bg-indigo-500"
   },
-  cifrash: {
+  {
+    name: "Cifras Shalom",
+    url: "https://cifra-sh.pages.dev",
     description: "Repositório litúrgico de partituras e cifras de louvores.",
-    iconName: "Music",
+    icon: Music,
     colorClass: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-900/50",
-    accentColor: "#6d28d9"
-  }
-};
+    topBorder: "bg-violet-500"
+  },
+  {
+    name: "WOP Shalom",
+    url: "https://wopsh.pages.dev",
+    description: "Portal de formação, ministérios e escalas pastorais.",
+    icon: Users,
+    colorClass: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/50",
+    topBorder: "bg-orange-500"
+  },
+];
 
 export default function App() {
   const [session, setSession] = useState<UserSession | null>(null);
-  const [apps, setApps] = useState<CommunityApp[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [ssoLoading, setSsoLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
   // Modals state
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [showSimulationModal, setShowSimulationModal] = useState<CommunityApp | null>(null);
   const [showPWAModal, setShowPWAModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -159,43 +165,10 @@ export default function App() {
     }
   };
 
-  // Fetch target apps configuration status from the Express backend
-  const fetchAppsStatus = async () => {
-    setRefreshing(true);
-    try {
-      const res = await fetch("/api/apps-status");
-      if (res.ok) {
-        const data = await res.json();
-        // Enrich backend configuration status with frontend aesthetics
-        const richerApps = data.apps.map((app: any) => {
-          const meta = localMetadata[app.id] || {
-            description: "Aplicativo oficial da comunidade Shalom.",
-            iconName: "Church",
-            colorClass: "bg-slate-50 text-slate-700 border-slate-200",
-            accentColor: "#475569"
-          };
-          return {
-            ...app,
-            ...meta
-          };
-        });
-        setApps(richerApps);
-      } else {
-        throw new Error("Resposta inválida do servidor.");
-      }
-    } catch (err: any) {
-      console.error("Falha ao obter status dos apps:", err);
-      setError("Não foi possível conectar com o servidor para buscar a configuração dos aplicativos.");
-    } finally {
-      setRefreshing(false);
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     const init = async () => {
       await checkSession();
-      await fetchAppsStatus();
+      setLoading(false);
     };
     init();
 
@@ -277,21 +250,6 @@ export default function App() {
     }
   };
 
-  const handleDemoLogin = () => {
-    setError(null);
-    const demoUser: UserSession = {
-      email: "barbosma1@gmail.com",
-      name: "Marcus Barbosa",
-      avatarUrl: `https://api.dicebear.com/7.x/micah/svg?seed=Marcus&backgroundColor=f59e0b`,
-      token: "demo-jwt-portal-shalom-token-verify",
-      isMock: true
-    };
-    setSession(demoUser);
-    localStorage.setItem("portal_shalom_demo_session", JSON.stringify(demoUser));
-    setSuccess("Entrou no Modo de Demonstração como barbosma1@gmail.com!");
-    setTimeout(() => setSuccess(null), 3000);
-  };
-
   const handleLogout = async () => {
     setError(null);
     if (session?.isMock) {
@@ -313,61 +271,6 @@ export default function App() {
         setError("Erro ao deslogar: " + err.message);
       }
     }
-  };
-
-  const handleOpenApp = async (app: CommunityApp) => {
-    if (!session) return;
-
-    // If target app is not connected (hasKeys: false) or we are in mock mode, open the interactive simulation modal!
-    if (session.isMock || !app.hasKeys) {
-      setShowSimulationModal(app);
-      return;
-    }
-
-    setSsoLoading(app.id);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/sso/generate-link", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.token}`
-        },
-        body: JSON.stringify({ appId: app.id })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Ocorreu um erro no servidor ao gerar o link.");
-      }
-
-      if (data.actionLink) {
-        setSuccess(`Redirecionando com SSO para ${app.name}...`);
-        setTimeout(() => {
-          window.location.href = data.actionLink;
-        }, 1200);
-      } else {
-        throw new Error("O link retornado pelo servidor é inválido.");
-      }
-    } catch (err: any) {
-      console.error("Erro no fluxo SSO:", err);
-      // Fallback: If it fails, open simulation to show them exactly what was happening
-      setError(`Falha ao abrir ${app.name}: ${err.message}. Exibindo o simulador.`);
-      setTimeout(() => {
-        setError(null);
-        setShowSimulationModal(app);
-      }, 2500);
-    } finally {
-      setSsoLoading(null);
-    }
-  };
-
-  const handleCopyText = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedText(label);
-    setTimeout(() => setCopiedText(null), 2000);
   };
 
   if (loading) {
@@ -480,15 +383,7 @@ export default function App() {
                   <LogOut size={18} />
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setShowConfigModal(true)}
-                className="text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-amber-600 flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 h-9 rounded-lg transition-all"
-              >
-                <Key size={14} />
-                Como Configurar?
-              </button>
-            )}
+            ) : null}
           </div>
         </div>
       </header>
@@ -496,19 +391,11 @@ export default function App() {
       {/* DETAILED MOCK CONFIG ALERT BANNER */}
       {!isSupabaseConfigured && (
         <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-800 dark:text-amber-300 py-3 px-4" id="config-alert-banner">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <Info className="shrink-0 text-amber-600" size={16} />
-              <p>
-                <strong>Supabase Principal não configurado!</strong> O portal está rodando em <strong>Modo Sandbox</strong>. Configurações reais de login e SSO de produção usarão as chaves configuradas em seus secrets.
-              </p>
-            </div>
-            <button 
-              onClick={() => setShowConfigModal(true)}
-              className="underline font-bold hover:text-amber-600 text-left shrink-0"
-            >
-              Ver instruções de configuração →
-            </button>
+          <div className="max-w-7xl mx-auto flex items-center gap-2 text-xs">
+            <Info className="shrink-0 text-amber-600" size={16} />
+            <p>
+              <strong>Supabase não configurado no ambiente.</strong> Ative o login de produção configurando <code className="font-mono bg-amber-500/15 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> e <code className="font-mono bg-amber-500/15 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code>.
+            </p>
           </div>
         </div>
       )}
@@ -599,115 +486,72 @@ export default function App() {
                       Seus Aplicativos Integrados
                     </h2>
                     <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase dark:bg-amber-950/50 dark:text-amber-300">
-                      SSO Launcher
+                      Launcher
                     </span>
                   </div>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Selecione um sistema para acessar imediatamente. Você entrará autenticado com o e-mail <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono">{session.email}</span>.
+                    Selecione um sistema para acessar imediatamente em uma nova aba. Você está conectado como <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono">{session.email}</span>.
                   </p>
-                </div>
-
-                {/* Actions Bar */}
-                <div className="flex items-center justify-center gap-2">
-                  <button
-                    onClick={fetchAppsStatus}
-                    disabled={refreshing}
-                    className="p-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center"
-                    title="Atualizar conexões do servidor"
-                  >
-                    <RefreshCw className={refreshing ? "animate-spin" : ""} size={16} />
-                  </button>
-                  <button
-                    onClick={() => setShowConfigModal(true)}
-                    className="h-10 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors flex items-center gap-1.5"
-                  >
-                    <Key size={14} />
-                    Configurar Chaves
-                  </button>
                 </div>
               </div>
 
               {/* STAGGERED APP GRID CARDS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="apps-grid">
-                {apps.map((app, index) => {
-                  const IconComponent = IconMap[app.iconName] || Church;
-                  const isConfigured = app.hasKeys && !session.isMock;
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6" id="apps-grid">
+                {staticApps.map((app, index) => {
+                  const IconComponent = app.icon;
 
                   return (
                     <motion.div
-                      key={app.id}
+                      key={app.name}
                       initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-6 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative"
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative pt-6 sm:pt-8 overflow-hidden"
                     >
+                      {/* Top colored border accent */}
+                      <div className={`absolute top-0 left-0 right-0 h-1.5 ${app.topBorder}`} />
+
                       <div>
                         {/* Top Indicator */}
                         <div className="flex items-center justify-between mb-4">
                           {/* App Icon Wrapper */}
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
-                            <IconComponent size={22} />
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
+                            <IconComponent size={20} className="sm:w-5 sm:h-5" />
                           </div>
 
-                          {/* SSO Connection Status badge */}
-                          <div className="flex items-center gap-1.5 text-[11px] font-medium leading-none">
-                            {isConfigured ? (
-                              <span className="inline-flex items-center px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/40">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
-                                SSO Ativo
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mr-1.5" />
-                                Sandbox
-                              </span>
-                            )}
+                          {/* Connection indicator */}
+                          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium leading-none text-emerald-600 dark:text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Ativo</span>
                           </div>
                         </div>
 
                         {/* Title & Description */}
-                        <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                        <h3 className="font-display font-bold text-sm sm:text-lg text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
                           {app.name}
                         </h3>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs mt-1.5 leading-relaxed min-h-[40px]">
+                        <p className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs mt-1.5 leading-relaxed min-h-[44px] sm:min-h-[40px] line-clamp-2">
                           {app.description}
                         </p>
                         
                         {/* Domain text */}
-                        <p className="text-[10px] font-mono text-slate-400 mt-2 flex items-center gap-1">
+                        <p className="text-[9px] sm:text-[10px] font-mono text-slate-400 mt-2 flex items-center gap-1">
                           <ExternalLink size={10} />
                           {app.url.replace("https://", "")}
                         </p>
                       </div>
 
-                      {/* Action Button */}
-                      <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                        {ssoLoading === app.id ? (
-                          <button
-                            disabled
-                            className="w-full h-10 rounded-xl bg-slate-100 text-slate-400 text-xs font-semibold flex items-center justify-center gap-2 dark:bg-slate-800"
-                          >
-                            <RefreshCw className="animate-spin text-amber-500" size={14} />
-                            Iniciando SSO...
-                          </button>
-                        ) : isConfigured ? (
-                          <button
-                            onClick={() => handleOpenApp(app)}
-                            className="w-full h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer"
-                          >
-                            Abrir Aplicativo
-                            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleOpenApp(app)}
-                            className="w-full h-10 rounded-xl border border-dashed border-amber-300 dark:border-amber-900/80 bg-amber-500/5 hover:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
-                          >
-                            <Unlock size={13} className="mr-0.5" />
-                            Simular SSO Mágico
-                            <HelpCircle size={13} className="opacity-60" />
-                          </button>
-                        )}
+                      {/* Action Link/Button */}
+                      <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <a
+                          href={app.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer"
+                        >
+                          <span>Acessar App</span>
+                          <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                        </a>
                       </div>
                     </motion.div>
                   );
@@ -723,270 +567,10 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <p>© 2026 Portal Shalom. Desenvolvido para unificação de sistemas comunitários.</p>
           <div className="flex justify-center gap-4">
-            <button 
-              onClick={() => setShowConfigModal(true)} 
-              className="hover:text-amber-500 underline"
-            >
-              Arquitetura de Variáveis
-            </button>
-            <span>•</span>
             <span className="font-mono">v1.1.0-secure</span>
           </div>
         </div>
       </footer>
-
-      {/* MODAL 1: HOW TO CONFIGURE KEYS / ARCHITECTURE INSTRUCTION */}
-      <AnimatePresence>
-        {showConfigModal && (
-          <div className="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800"
-              id="config-modal"
-            >
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white flex items-center gap-2">
-                    <Key className="text-amber-500" />
-                    Configuração de Chaves & SSO
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Como conectar os aplicativos de destino de forma 100% segura.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowConfigModal(false)}
-                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-6 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                {/* Visual Architecture Path */}
-                <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-900 rounded-2xl p-4">
-                  <p className="font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2 font-mono">
-                    Fluxo Seguro de Autenticação (SSO)
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-center text-xs mt-3">
-                    <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-150">
-                      <p className="font-bold text-amber-600">1. Portal Frontend</p>
-                      <p className="text-[10px] mt-1 text-slate-500 leading-tight">Faz login com Google e envia o JWT seguro ao servidor.</p>
-                    </div>
-                    <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-150 relative">
-                      <p className="font-bold text-emerald-600">2. Portal Server</p>
-                      <p className="text-[10px] mt-1 text-slate-500 leading-tight">Valida o token. Usa a Service Key do destino para gerar o link.</p>
-                      <div className="hidden md:block absolute top-1/2 -right-2 transform -translate-y-1/2 z-10 text-slate-400">→</div>
-                      <div className="hidden md:block absolute top-1/2 -left-2 transform -translate-y-1/2 z-10 text-slate-400">→</div>
-                    </div>
-                    <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-150">
-                      <p className="font-bold text-blue-600">3. App de Destino</p>
-                      <p className="text-[10px] mt-1 text-slate-500 leading-tight">Usuário é redirecionado e já entra logado sem senha.</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Environment variables list */}
-                <div>
-                  <h4 className="font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
-                    <Lock size={15} className="text-amber-600" />
-                    Variáveis Próprias dos Aplicativos (Secrets de Servidor)
-                  </h4>
-                  <p className="text-xs text-slate-500 mb-3">
-                    Configure estas chaves na aba <strong>Secrets</strong> no painel lateral do AI Studio. Elas ficarão guardadas no servidor de forma oculta do navegador.
-                  </p>
-
-                  <div className="space-y-3 font-mono text-xs">
-                    {[
-                      { name: "PASHALOM", app: "PA Shalom" },
-                      { name: "WOPSH", app: "Wopsh" },
-                      { name: "GESTOPRO", app: "Gest-o-pro" },
-                      { name: "EVANSH", app: "Evansh" },
-                      { name: "ADORACOOSHALOM", app: "Adoração Shalom" },
-                      { name: "CIFRASH", app: "Cifra Sh" }
-                    ].map((env) => (
-                      <div key={env.name} className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                        <div className="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-1.5 mb-1.5">
-                          <span className="font-bold text-slate-900 dark:text-slate-100">{env.app}</span>
-                          <span className="text-[10px] text-slate-400 font-sans">Váriaveis requeridas:</span>
-                        </div>
-                        <div className="space-y-1 text-[11px]">
-                          <div className="flex justify-between items-center gap-2">
-                            <span className="text-amber-700 dark:text-amber-400 font-bold">SUPABASE_URL_{env.name}</span>
-                            <button 
-                              onClick={() => handleCopyText(`SUPABASE_URL_${env.name}`, `u-${env.name}`)}
-                              className="text-[10px] font-sans hover:text-amber-600 underline flex items-center gap-0.5 shrink-0"
-                            >
-                              {copiedText === `u-${env.name}` ? <Check size={10} /> : <Copy size={10} />}
-                              Copiar
-                            </button>
-                          </div>
-                          <div className="flex justify-between items-center gap-2">
-                            <span className="text-emerald-700 dark:text-emerald-400 font-bold">SUPABASE_SERVICE_KEY_{env.name}</span>
-                            <button 
-                              onClick={() => handleCopyText(`SUPABASE_SERVICE_KEY_${env.name}`, `k-${env.name}`)}
-                              className="text-[10px] font-sans hover:text-emerald-600 underline flex items-center gap-0.5 shrink-0"
-                            >
-                              {copiedText === `k-${env.name}` ? <Check size={10} /> : <Copy size={10} />}
-                              Copiar
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <h4 className="font-semibold text-xs uppercase text-slate-700 dark:text-slate-400 font-mono mb-1">
-                    Exemplo de Código Server-side no arquivo server.ts:
-                  </h4>
-                  <pre className="text-[10px] font-mono bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto">
-{`const targetSupabase = createClient(targetUrl, targetServiceKey);
-
-const { data, error } = await targetSupabase.auth.admin.generateLink({
-  type: 'magiclink',
-  email: userEmail,
-  options: { redirectTo: 'https://pa-shalom.pages.dev' }
-});`}
-                  </pre>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-                <button
-                  onClick={() => setShowConfigModal(false)}
-                  className="px-5 py-2 bg-slate-900 text-white dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 font-semibold text-sm rounded-xl transition-all"
-                >
-                  Entendi, Fechar
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL 2: INTERACTIVE SSO ARCHITECTURE SIMULATOR */}
-      <AnimatePresence>
-        {showSimulationModal && (
-          <div className="fixed inset-0 bg-slate-950/75 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl border border-slate-200 dark:border-slate-800 text-left"
-              id="simulation-modal"
-            >
-              <div className="flex items-start justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${showSimulationModal.colorClass}`}>
-                    {React.createElement(IconMap[showSimulationModal.iconName] || Church, { size: 20 })}
-                  </div>
-                  <div>
-                    <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-1.5">
-                      Simulação do SSO Magic Link
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Visualizando o fluxo de segurança do aplicativo <strong>{showSimulationModal.name}</strong>
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowSimulationModal(null)}
-                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-5">
-                {/* Banner explaining sandbox */}
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
-                  <Info className="shrink-0 mt-0.5" size={14} />
-                  <div>
-                    <p className="font-semibold">Este aplicativo está rodando em modo sandbox ou simulação.</p>
-                    <p className="opacity-90 mt-0.5">
-                      Para ativação em produção real, configure as variáveis <code className="font-mono bg-amber-500/10 px-1 py-0.5 rounded">SUPABASE_URL_{showSimulationModal.id.toUpperCase()}</code> e <code className="font-mono bg-amber-500/10 px-1 py-0.5 rounded">SUPABASE_SERVICE_KEY_{showSimulationModal.id.toUpperCase()}</code> no servidor.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Interactive Console Visual Flow */}
-                <div className="bg-slate-900 rounded-2xl p-5 text-xs text-slate-300 font-mono space-y-3 shadow-inner relative overflow-hidden border border-slate-800">
-                  <div className="absolute top-2 right-2 flex items-center gap-1 text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    CONSOLE DO SERVIDOR
-                  </div>
-                  
-                  <div className="space-y-2 border-l-2 border-amber-500/40 pl-3">
-                    <p className="text-slate-500">[{new Date().toLocaleTimeString()}] SSO Request Iniciado para: <span className="text-yellow-400">{showSimulationModal.id}</span></p>
-                    <p><span className="text-blue-400">POST</span> /api/sso/generate-link</p>
-                    <p className="text-slate-400">Header: <span className="text-emerald-400">Authorization: Bearer [portal-user-jwt-token]</span></p>
-                  </div>
-
-                  <div className="space-y-1.5 border-l-2 border-emerald-500/40 pl-3">
-                    <p className="text-slate-400">➔ Verificando validade do token no Supabase do Portal...</p>
-                    <p className="text-emerald-400">✔ Token verificado com sucesso!</p>
-                    <p className="text-slate-300">Email extraído: <span className="text-white font-bold">{session.email}</span></p>
-                  </div>
-
-                  <div className="space-y-1.5 border-l-2 border-blue-500/40 pl-3">
-                    <p className="text-slate-400">➔ Carregando credenciais de serviço para {showSimulationModal.name}...</p>
-                    {showSimulationModal.hasKeys ? (
-                      <p className="text-emerald-400">✔ Credenciais encontradas na configuração do servidor.</p>
-                    ) : (
-                      <p className="text-amber-400">⚠ Chaves ausentes nos secrets. Simulando chaves fictícias...</p>
-                    )}
-                    <p className="text-slate-400">➔ Executando: <span className="text-violet-400">supabase.auth.admin.generateLink(...)</span></p>
-                    <p className="text-emerald-400">✔ Link de login mágico criado com sucesso!</p>
-                  </div>
-
-                  <div className="bg-slate-950 p-2 rounded-lg border border-slate-850 break-all leading-normal text-[10px]">
-                    <span className="text-amber-500 font-bold">Link SSO Mágico de Redirecionamento:</span>
-                    <p className="text-slate-400 select-all mt-1">
-                      {showSimulationModal.url}/#access_token=mock_sso_jwt_token_for_{session.email.split("@")[0]}&refresh_token=mock_refresh_sso_token_123&type=magiclink&redirectTo={encodeURIComponent(showSimulationModal.url)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Explanation */}
-                <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-900">
-                  <p className="font-semibold text-slate-700 dark:text-slate-300 mb-1">Como o aplicativo de destino recebe esse link?</p>
-                  O aplicativo de destino ({showSimulationModal.name}) carrega o Supabase Client em seu frontend. O SDK do Supabase detecta automaticamente os parâmetros do hash (token) contidos na URL gerada, autologando o usuário instantaneamente na comunidade e liberando o painel correspondente de forma invisível.
-                </div>
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                  <Unlock size={12} />
-                  Simulador de redirecionamento ativo
-                </span>
-
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => setShowSimulationModal(null)}
-                    className="flex-1 sm:flex-none px-4 py-2 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    Fechar
-                  </button>
-                  <a
-                    href={showSimulationModal.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={() => setShowSimulationModal(null)}
-                    className="flex-1 sm:flex-none px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
-                  >
-                    Abrir App em Nova Aba
-                    <ExternalLink size={12} />
-                  </a>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* MODAL 3: PWA INSTALLATION INSTRUCTIONS */}
       <AnimatePresence>
