@@ -514,7 +514,13 @@ export default function App() {
   };
 
   const handleAccessApp = async (appUrl: string, appName: string) => {
-    // 1. Enforce access authorization
+    // 1. Enforce registration check
+    if (!session || !session.isRegistered) {
+      setError("Acesso Negado! Você precisa preencher o cadastro do Portal Shalom antes de acessar os aplicativos.");
+      return;
+    }
+
+    // 2. Enforce access authorization
     if (session && !checkAppPermission(appUrl, session.role)) {
       setError(`Acesso Negado! Seu nível de acesso (${session.role || "Membro"}) não tem permissão para acessar o "${appName}". Fale com seu coordenador se precisar deste acesso.`);
       return;
