@@ -218,7 +218,7 @@ export default function App() {
   const handleGoogleLogin = async () => {
     setError(null);
     if (!isSupabaseConfigured || !supabase) {
-      setError("Supabase não está configurado. Use o modo de demonstração abaixo.");
+      setError("O Supabase principal não está configurado nas variáveis de ambiente.");
       return;
     }
 
@@ -235,12 +235,20 @@ export default function App() {
       if (error) throw error;
 
       if (data?.url) {
+        // Fix: Append apikey parameter to the authorize URL to prevent "No API key found in request"
+        const urlObj = new URL(data.url);
+        if (!urlObj.searchParams.has("apikey")) {
+          const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+          urlObj.searchParams.set("apikey", anonKey);
+        }
+        const finalUrl = urlObj.toString();
+
         const width = 550;
         const height = 650;
         const left = window.screen.width / 2 - width / 2;
         const top = window.screen.height / 2 - height / 2;
         window.open(
-          data.url, 
+          finalUrl, 
           "portal_shalom_oauth", 
           `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
         );
@@ -514,7 +522,7 @@ export default function App() {
                     disabled={!isSupabaseConfigured}
                     className={`w-full h-12 rounded-xl font-medium flex items-center justify-center gap-3 transition-all duration-200 shadow-sm ${
                       isSupabaseConfigured
-                        ? "bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 hover:border-slate-400 active:scale-98 dark:bg-slate-800 dark:text-white dark:border-slate-700"
+                        ? "bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 hover:border-slate-400 active:scale-98 dark:bg-slate-800 dark:text-white dark:border-slate-700 cursor-pointer"
                         : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed dark:bg-slate-900 dark:border-slate-800 dark:text-slate-600"
                     }`}
                     id="supabase-google-login-button"
@@ -529,28 +537,14 @@ export default function App() {
                     Entrar com Google
                   </button>
 
-                  {/* Option B: Mock Admin Demo Mode (Enabled for out-of-the-box experience) */}
-                  <div className="relative py-4 flex items-center justify-center">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800" /></div>
-                    <span className="relative px-3 bg-white dark:bg-slate-900 text-xs text-slate-400 uppercase font-mono">Ou Teste Instantâneo</span>
-                  </div>
-
-                  <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-left">
-                    <p className="text-xs text-amber-800 dark:text-amber-300 mb-3 flex items-start gap-1.5 leading-relaxed">
-                      <Sparkles className="shrink-0 mt-0.5" size={14} />
-                      <span>
-                        Seja bem-vindo, <strong>Marcus</strong>! Clique abaixo para simular o login com seu e-mail do formulário e testar todos os 6 aplicativos agora.
-                      </span>
-                    </p>
-                    <button
-                      onClick={handleDemoLogin}
-                      className="w-full h-11 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium text-sm rounded-xl shadow-md shadow-amber-500/10 hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                      id="demo-login-button"
-                    >
-                      <ArrowRight size={16} />
-                      Simular como barbosma1@gmail.com
-                    </button>
-                  </div>
+                  {!isSupabaseConfigured && (
+                    <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-left mt-4">
+                      <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                        <span className="font-semibold block mb-1">Configuração pendente:</span>
+                        As credenciais do Supabase principal para o login não foram detectadas no ambiente. Para ativar o login real com Google, configure as chaves <code className="font-mono bg-amber-500/15 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> e <code className="font-mono bg-amber-500/15 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code>.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-center gap-1">
