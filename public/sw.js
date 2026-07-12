@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portal-shalom-v1';
+const CACHE_NAME = 'portal-shalom-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
