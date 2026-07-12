@@ -19,7 +19,10 @@ import {
   Check, 
   Sparkles, 
   Info,
-  AlertCircle
+  AlertCircle,
+  Download,
+  Smartphone,
+  Monitor
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { CommunityApp, UserSession } from "./types";
@@ -87,6 +90,44 @@ export default function App() {
   // Modals state
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSimulationModal, setShowSimulationModal] = useState<CommunityApp | null>(null);
+  const [showPWAModal, setShowPWAModal] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
+  // Escutar prompt de instalação do PWA
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallPrompt(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    // Se já estiver rodando como app autônomo (instalado), ocultar botão/indicadores
+    if (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone) {
+      setShowInstallPrompt(false);
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+      // Se não houver prompt nativo (ex: iOS Safari ou navegadores sem suporte), abriremos o modal explicativo
+      setShowPWAModal(true);
+      return;
+    }
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`Resposta do usuário para instalação: ${outcome}`);
+    
+    setDeferredPrompt(null);
+    setShowInstallPrompt(false);
+  };
 
   // Verify and fetch active sessions on mount
   const checkSession = async () => {
@@ -223,38 +264,14 @@ export default function App() {
     }
 
     try {
-      // Prompt popup flow as outlined in the oauth-integration skill
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          skipBrowserRedirect: true,
           redirectTo: window.location.origin
         }
       });
 
       if (error) throw error;
-
-      if (data?.url) {
-        // Fix: Append apikey parameter to the authorize URL to prevent "No API key found in request"
-        const urlObj = new URL(data.url);
-        if (!urlObj.searchParams.has("apikey")) {
-          const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-          urlObj.searchParams.set("apikey", anonKey);
-        }
-        const finalUrl = urlObj.toString();
-
-        const width = 550;
-        const height = 650;
-        const left = window.screen.width / 2 - width / 2;
-        const top = window.screen.height / 2 - height / 2;
-        window.open(
-          finalUrl, 
-          "portal_shalom_oauth", 
-          `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-        );
-      } else {
-        throw new Error("Não foi possível gerar a URL de autorização.");
-      }
     } catch (err: any) {
       setError("Falha ao iniciar o login: " + err.message);
     }
@@ -425,6 +442,17 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
+            {/* PWA INSTALL BUTTON */}
+            <button
+              onClick={handleInstallClick}
+              className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50 flex items-center gap-1.5 px-3 h-9 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-all cursor-pointer shadow-xs active:scale-95"
+              id="pwa-install-button"
+              title="Instalar Portal Shalom como Aplicativo no seu dispositivo"
+            >
+              <Download size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>Instalar App</span>
+            </button>
+
             {session ? (
               <div className="flex items-center gap-3">
                 <div className="hidden sm:block text-right">
@@ -954,6 +982,99 @@ const { data, error } = await targetSupabase.auth.admin.generateLink({
                     <ExternalLink size={12} />
                   </a>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 3: PWA INSTALLATION INSTRUCTIONS */}
+      <AnimatePresence>
+        {showPWAModal && (
+          <div className="fixed inset-0 bg-slate-950/75 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800 text-left"
+              id="pwa-modal"
+            >
+              <div className="flex items-start justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-md shadow-amber-500/5">
+                    <Download size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                      Instalar Portal Shalom
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Adicione à tela inicial do seu dispositivo
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPWAModal(false)}
+                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                  O Portal Shalom é um aplicativo web completo (PWA). Você pode instalá-lo em seu celular, tablet ou computador para acessá-lo como um aplicativo nativo diretamente da sua tela inicial com carregamento instantâneo.
+                </div>
+
+                <div className="space-y-3 mt-2">
+                  {/* Option 1: iOS Safari */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-150 dark:border-slate-850 flex items-start gap-3">
+                    <Smartphone className="shrink-0 text-slate-500 mt-0.5" size={18} />
+                    <div className="text-xs">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">No iPhone ou iPad (Safari)</p>
+                      <ol className="list-decimal list-inside text-slate-500 dark:text-slate-400 mt-1 space-y-1">
+                        <li>Toque no botão <span className="font-bold">Compartilhar</span> (ícone com quadrado e seta pra cima).</li>
+                        <li>Role para baixo e selecione <span className="font-semibold text-slate-800 dark:text-slate-200">Adicionar à Tela de Início</span>.</li>
+                        <li>Toque em <span className="font-bold text-amber-600">Adicionar</span> no canto superior direito.</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Android Chrome */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-150 dark:border-slate-850 flex items-start gap-3">
+                    <Smartphone className="shrink-0 text-slate-500 mt-0.5" size={18} />
+                    <div className="text-xs">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">No Android (Chrome)</p>
+                      <ol className="list-decimal list-inside text-slate-500 dark:text-slate-400 mt-1 space-y-1">
+                        <li>Toque no menu de <span className="font-bold">3 pontos</span> no canto superior.</li>
+                        <li>Selecione <span className="font-semibold text-slate-800 dark:text-slate-200">Instalar aplicativo</span> ou <span className="font-semibold text-slate-800 dark:text-slate-200">Adicionar à tela inicial</span>.</li>
+                        <li>Confirme clicando em <span className="font-bold text-amber-600">Instalar</span>.</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  {/* Option 3: Computador */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-150 dark:border-slate-850 flex items-start gap-3">
+                    <Monitor className="shrink-0 text-slate-500 mt-0.5" size={18} />
+                    <div className="text-xs">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">No Computador (Chrome/Edge)</p>
+                      <ol className="list-decimal list-inside text-slate-500 dark:text-slate-400 mt-1 space-y-1">
+                        <li>Clique no ícone de <span className="font-bold">Instalar</span> na barra de endereços (ao lado do favoritos).</li>
+                        <li>Ou clique nos 3 pontos e escolha <span className="font-semibold text-slate-800 dark:text-slate-200">Salvar e compartilhar &gt; Instalar página como app</span>.</li>
+                        <li>Clique em <span className="font-bold text-amber-600">Instalar</span>.</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+                <button
+                  onClick={() => setShowPWAModal(false)}
+                  className="px-5 py-2 bg-slate-900 text-white dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 font-semibold text-xs rounded-xl transition-all"
+                >
+                  Entendi, Fechar
+                </button>
               </div>
             </motion.div>
           </div>
