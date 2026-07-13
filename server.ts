@@ -14,7 +14,7 @@ const appConfigs: Record<string, { urlVar: string; keyVar: string; defaultUrl: s
   pashalom: {
     urlVar: "SUPABASE_URL_PASHALOM",
     keyVar: "SUPABASE_SERVICE_KEY_PASHALOM",
-    defaultUrl: "https://pashalom.pages.dev"
+    defaultUrl: "https://pa-shalom.pages.dev"
   },
   poshalom: {
     urlVar: "SUPABASE_URL_POSHALOM",
@@ -44,9 +44,25 @@ const appConfigs: Record<string, { urlVar: string; keyVar: string; defaultUrl: s
   cifrash: {
     urlVar: "SUPABASE_URL_CIFRASH",
     keyVar: "SUPABASE_SERVICE_KEY_CIFRASH",
-    defaultUrl: "https://cifra-sh.pages.dev"
+    defaultUrl: "https://cifras-sh.pages.dev"
   }
 };
+
+// Central authorization mapping: mirrors src/lib/authorization.ts.
+// Only emails listed here can have a real SSO magic link generated for them.
+// Use "all" to authorize every app, or an array of specific app ids.
+const AUTHORIZED_ACCESS: Record<string, "all" | string[]> = {
+  "barbosma1@gmail.com": "all",
+};
+
+function isEmailAuthorizedForApp(email: string | undefined | null, appId: string): boolean {
+  const normalized = (email || "").trim().toLowerCase();
+  if (!normalized) return false;
+  const access = AUTHORIZED_ACCESS[normalized];
+  if (!access) return false;
+  if (access === "all") return true;
+  return access.includes(appId);
+}
 
 async function startServer() {
   const app = express();
@@ -117,6 +133,14 @@ async function startServer() {
 
       if (authError || !user || !user.email) {
         return res.status(401).json({ error: "Usuário não autenticado ou sessão expirada no Portal Shalom." });
+      }
+
+      // Authorization gate: only emails explicitly listed in AUTHORIZED_ACCESS
+      // can have a real magic link generated, and only for apps they were
+      // granted. This is the real security boundary — the frontend check
+      // exists only for UX, this one cannot be bypassed by the browser.
+      if (!isEmailAuthorizedForApp(user.email, appId)) {
+        return res.status(403).json({ error: "Este email não está autorizado a acessar este aplicativo." });
       }
 
       // Initialize Target App's Supabase with its Service Role Key
