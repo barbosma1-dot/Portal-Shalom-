@@ -25,5 +25,10 @@
       "vite/client"
     ],
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "functions",
+    "node_modules",
+    "dist"
+  ]
 }

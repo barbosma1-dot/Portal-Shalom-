@@ -608,6 +608,40 @@ async function startServer() {
     }
   });
 
+  // Helper score calculators for IIEE
+  function getFinancialScore(pct: number): number {
+    if (pct > 15) return 100;
+    if (pct >= 5) return 85;
+    if (pct > 0) return 75;
+    if (pct === 0) return 70;
+    if (pct >= -5) return 50;
+    if (pct >= -15) return 30;
+    return 10;
+  }
+
+  function getEngagementScore(rate: number): number {
+    if (rate > 20) return 100;
+    if (rate >= 15) return 85;
+    if (rate >= 10) return 70;
+    if (rate >= 5) return 50;
+    return 20;
+  }
+
+  function getNpsScoreAndClass(nps: number): { score: number; label: string } {
+    if (nps > 75) return { score: 100, label: "Excelente" };
+    if (nps >= 50) return { score: 85, label: "Muito bom" };
+    if (nps >= 0) return { score: 50, label: "Precisa melhorar" };
+    return { score: 20, label: "Ruim" };
+  }
+
+  function getIieeClassification(iiee: number): string {
+    if (iiee >= 90) return "Grande potencial evangelizador";
+    if (iiee >= 75) return "Forte";
+    if (iiee >= 60) return "Mediano";
+    if (iiee >= 40) return "Frágil";
+    return "Crítico";
+  }
+
   // API Route: Consolidated Reports Aggregator
   app.get("/api/admin/reports-summary", async (req, res) => {
     try {

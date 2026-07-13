@@ -22,10 +22,12 @@ import {
   AlertCircle,
   Download,
   Smartphone,
-  Monitor
+  Monitor,
+  Shield
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { CommunityApp, UserSession } from "./types";
+import AdminPanel from "./components/AdminPanel";
 
 // List of static applications
 const staticApps = [
@@ -109,12 +111,12 @@ export default function App() {
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [failedIcons, setFailedIcons] = useState<Record<string, boolean>>({});
 
-  // Modals state
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPWAModal, setShowPWAModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [appsStatus, setAppsStatus] = useState<Record<string, { id: string; name: string; url: string; hasKeys: boolean; isAuthorized?: boolean }>>({});
+  const [portalView, setPortalView] = useState<"launcher" | "admin">("launcher");
 
   // Fetch app status configurations from local backend API
   useEffect(() => {
@@ -601,137 +603,172 @@ export default function App() {
               </div>
             </motion.div>
           ) : (
-            /* 2. THE MAIN PORTAL LAUNCHER GRID */
+            /* 2. MAIN LOGGED-IN PORTAL CONTAINER */
             <motion.div
-              key="main-portal"
+              key="logged-in-portal"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="space-y-8"
-              id="launcher-panel"
+              id="logged-in-panel"
             >
-              {/* Launcher Header Title */}
-              <div className="text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
-                <div>
-                  <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                    <h2 className="font-display font-bold text-2xl tracking-tight text-slate-900 dark:text-white">
-                      Seus Aplicativos Integrados
-                    </h2>
-                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase dark:bg-amber-950/50 dark:text-amber-300">
-                      Launcher
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Selecione um sistema para acessar imediatamente em uma nova aba. Você está conectado como <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono">{session.email}</span>.
-                  </p>
+              {/* Conditional Segmented View Switcher for Administrators */}
+              {session.email?.toLowerCase().trim() === "barbosma1@gmail.com" && (
+                <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl max-w-xs mx-auto md:mx-0 border border-slate-200/60 dark:border-slate-800 shadow-inner">
+                  <button
+                    onClick={() => setPortalView("launcher")}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      portalView === "launcher"
+                        ? "bg-white dark:bg-slate-850 text-slate-900 dark:text-white shadow-xs"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    <Church size={14} />
+                    <span>Launcher</span>
+                  </button>
+                  <button
+                    onClick={() => setPortalView("admin")}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      portalView === "admin"
+                        ? "bg-white dark:bg-slate-850 text-slate-900 dark:text-white shadow-xs"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    <Shield size={14} className="text-amber-500" />
+                    <span>Painel Admin</span>
+                  </button>
                 </div>
-              </div>
+              )}
 
-              {/* STAGGERED APP GRID CARDS */}
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6" id="apps-grid">
-                {staticApps.map((app, index) => {
-                  const FallbackIcon = app.fallbackIcon;
-                  const hasImageFailed = failedIcons[app.name];
+              {portalView === "admin" && session.email?.toLowerCase().trim() === "barbosma1@gmail.com" ? (
+                <AdminPanel session={session} />
+              ) : (
+                /* LAUNCHER GRID SECTION */
+                <div className="space-y-8">
+                  {/* Launcher Header Title */}
+                  <div className="text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+                    <div>
+                      <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
+                        <h2 className="font-display font-bold text-2xl tracking-tight text-slate-900 dark:text-white">
+                          Seus Aplicativos Integrados
+                        </h2>
+                        <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase dark:bg-amber-950/50 dark:text-amber-300">
+                          Launcher
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Selecione um sistema para acessar imediatamente em uma nova aba. Você está conectado como <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono">{session.email}</span>.
+                      </p>
+                    </div>
+                  </div>
 
-                  return (
-                    <motion.div
-                      key={app.name}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative pt-6 sm:pt-8 overflow-hidden"
-                    >
-                      {/* Top colored border accent */}
-                      <div className={`absolute top-0 left-0 right-0 h-1.5 ${app.topBorder}`} />
+                  {/* STAGGERED APP GRID CARDS */}
+                  <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6" id="apps-grid">
+                    {staticApps.map((app, index) => {
+                      const FallbackIcon = app.fallbackIcon;
+                      const hasImageFailed = failedIcons[app.name];
 
-                      <div>
-                        {/* Top Indicator */}
-                        <div className="flex items-center justify-between mb-4">
-                          {/* App Icon / Logo Wrapper */}
-                          {hasImageFailed ? (
-                            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
-                              <FallbackIcon size={20} className="sm:w-5 sm:h-5" />
+                      return (
+                        <motion.div
+                          key={app.name}
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative pt-6 sm:pt-8 overflow-hidden"
+                        >
+                          {/* Top colored border accent */}
+                          <div className={`absolute top-0 left-0 right-0 h-1.5 ${app.topBorder}`} />
+
+                          <div>
+                            {/* Top Indicator */}
+                            <div className="flex items-center justify-between mb-4">
+                              {/* App Icon / Logo Wrapper */}
+                              {hasImageFailed ? (
+                                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
+                                  <FallbackIcon size={20} className="sm:w-5 sm:h-5" />
+                                </div>
+                              ) : (
+                                <img
+                                   src={app.icon}
+                                   alt={app.name}
+                                   onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
+                                   className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-800"
+                                   referrerPolicy="no-referrer"
+                                />
+                              )}
+
+                              {/* Dual status indicators */}
+                              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5">
+                                {/* Connection indicator */}
+                                {appsStatus[app.id]?.hasKeys ? (
+                                  <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Conexão SSO segura e direta ativa">
+                                    <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span>SSO</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/15" title="Utilizando redirecionamento seguro com chaves de simulação">
+                                    <span className="w-1 h-1 rounded-full bg-amber-500" />
+                                    <span>Simulado</span>
+                                  </div>
+                                )}
+
+                                {/* Permission indicator */}
+                                {appsStatus[app.id]?.isAuthorized ? (
+                                  <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Seu e-mail está cadastrado e autorizado">
+                                    <Check size={10} />
+                                    <span>Liberado</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/15" title="Acesso restrito. Solicite acesso ao administrador barbosma1@gmail.com">
+                                    <Lock size={10} />
+                                    <span>Restrito</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          ) : (
-                            <img
-                               src={app.icon}
-                               alt={app.name}
-                               onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
-                               className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-800"
-                               referrerPolicy="no-referrer"
-                            />
-                          )}
 
-                          {/* Dual status indicators */}
-                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5">
-                            {/* Connection indicator */}
-                            {appsStatus[app.id]?.hasKeys ? (
-                              <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Conexão SSO segura e direta ativa">
-                                <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                                <span>SSO</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/15" title="Utilizando redirecionamento seguro com chaves de simulação">
-                                <span className="w-1 h-1 rounded-full bg-amber-500" />
-                                <span>Simulado</span>
-                              </div>
-                            )}
+                            {/* Title & Description */}
+                            <h3 className="font-display font-bold text-sm sm:text-lg text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                              {app.name}
+                            </h3>
+                            <p className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs mt-1.5 leading-relaxed min-h-[44px] sm:min-h-[40px] line-clamp-2">
+                              {app.description}
+                            </p>
+                            
+                            {/* Domain text */}
+                            <p className="text-[9px] sm:text-[10px] font-mono text-slate-400 mt-2 flex items-center gap-1">
+                              <ExternalLink size={10} />
+                              {app.url.replace("https://", "")}
+                            </p>
+                          </div>
 
-                            {/* Permission indicator */}
+                          {/* Action Link/Button */}
+                          <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
                             {appsStatus[app.id]?.isAuthorized ? (
-                              <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Seu e-mail está cadastrado e autorizado">
-                                <Check size={10} />
-                                <span>Liberado</span>
-                              </div>
+                              <button
+                                onClick={() => handleAccessApp(app.id, app.url)}
+                                className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer font-sans"
+                              >
+                                <span>Acessar App</span>
+                                <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                              </button>
                             ) : (
-                              <div className="flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/15" title="Acesso restrito. Solicite acesso ao administrador barbosma1@gmail.com">
-                                <Lock size={10} />
-                                <span>Restrito</span>
-                              </div>
+                              <button
+                                onClick={() => handleAccessApp(app.id, app.url)}
+                                className="w-full h-9 sm:h-10 rounded-xl bg-slate-50 hover:bg-rose-50/50 text-slate-400 hover:text-rose-600 dark:bg-slate-850 dark:hover:bg-rose-950/20 dark:text-slate-500 dark:hover:text-rose-400 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all border border-slate-200/50 dark:border-slate-800/50 cursor-pointer font-sans"
+                                title="Acesso restrito. Clique para solicitar permissão."
+                              >
+                                <Lock size={12} />
+                                <span>Acesso Restrito</span>
+                              </button>
                             )}
                           </div>
-                        </div>
-
-                        {/* Title & Description */}
-                        <h3 className="font-display font-bold text-sm sm:text-lg text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
-                          {app.name}
-                        </h3>
-                        <p className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs mt-1.5 leading-relaxed min-h-[44px] sm:min-h-[40px] line-clamp-2">
-                          {app.description}
-                        </p>
-                        
-                        {/* Domain text */}
-                        <p className="text-[9px] sm:text-[10px] font-mono text-slate-400 mt-2 flex items-center gap-1">
-                          <ExternalLink size={10} />
-                          {app.url.replace("https://", "")}
-                        </p>
-                      </div>
-
-                      {/* Action Link/Button */}
-                      <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
-                        {appsStatus[app.id]?.isAuthorized ? (
-                          <button
-                            onClick={() => handleAccessApp(app.id, app.url)}
-                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer font-sans"
-                          >
-                            <span>Acessar App</span>
-                            <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleAccessApp(app.id, app.url)}
-                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-50 hover:bg-rose-50/50 text-slate-400 hover:text-rose-600 dark:bg-slate-850 dark:hover:bg-rose-950/20 dark:text-slate-500 dark:hover:text-rose-400 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all border border-slate-200/50 dark:border-slate-800/50 cursor-pointer font-sans"
-                            title="Acesso restrito. Clique para solicitar permissão."
-                          >
-                            <Lock size={12} />
-                            <span>Acesso Restrito</span>
-                          </button>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
