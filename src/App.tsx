@@ -25,6 +25,7 @@ import {
   Monitor
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
+import { isEmailAuthorizedForApp } from "./lib/authorization";
 import { CommunityApp, UserSession } from "./types";
 
 // List of static applications
@@ -32,9 +33,9 @@ const staticApps = [
   {
     id: "pashalom",
     name: "PA Shalom",
-    url: "https://pashalom.pages.dev",
+    url: "https://pa-shalom.pages.dev",
     description: "Planejamento Apostólico e células da comunidade Shalom.",
-    icon: "https://pashalom.pages.dev/favicon.ico",
+    icon: "https://pa-shalom.pages.dev/favicon.ico",
     fallbackIcon: Church,
     colorClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50",
     topBorder: "bg-blue-500"
@@ -82,9 +83,9 @@ const staticApps = [
   {
     id: "cifrash",
     name: "Cifras Shalom",
-    url: "https://cifra-sh.pages.dev",
+    url: "https://cifras-sh.pages.dev",
     description: "Repositório litúrgico de partituras e cifras de louvores.",
-    icon: "https://cifra-sh.pages.dev/favicon.ico",
+    icon: "https://cifras-sh.pages.dev/favicon.ico",
     fallbackIcon: Music,
     colorClass: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-900/50",
     topBorder: "bg-violet-500"
@@ -324,6 +325,15 @@ export default function App() {
 
   const handleAccessApp = async (appId: string, appUrl: string) => {
     setError(null);
+
+    // Authorization gate: only emails explicitly listed in AUTHORIZED_ACCESS
+    // (src/lib/authorization.ts) can open an app, and only for the apps they
+    // were granted. This blocks both the real SSO flow and the fallback
+    // redirection below, no matter the session type (Google login or demo).
+    if (!isEmailAuthorizedForApp(session?.email, appId)) {
+      setError("Você não tem autorização para acessar este aplicativo. Fale com o administrador do Portal Shalom se acredita que isso é um engano.");
+      return;
+    }
     
     // If we have a real production session and keys are configured, generate a real Magic Link via API
     if (session && !session.isMock && session.token && appsStatus[appId]?.hasKeys) {
@@ -649,7 +659,12 @@ export default function App() {
                           )}
 
                           {/* Connection indicator */}
-                          {appsStatus[app.id]?.hasKeys ? (
+                          {!isEmailAuthorizedForApp(session?.email, app.id) ? (
+                            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-red-600 dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/15" title="Seu email não está autorizado a acessar este aplicativo">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                              <span className="flex items-center gap-0.5">Sem autorização <Lock size={10} /></span>
+                            </div>
+                          ) : appsStatus[app.id]?.hasKeys ? (
                             <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Conexão SSO segura e direta ativa">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                               <span className="flex items-center gap-0.5">SSO Ativo <Lock size={10} /></span>
@@ -679,13 +694,24 @@ export default function App() {
 
                       {/* Action Link/Button */}
                       <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <button
-                          onClick={() => handleAccessApp(app.id, app.url)}
-                          className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer"
-                        >
-                          <span>Acessar App</span>
-                          <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
-                        </button>
+                        {isEmailAuthorizedForApp(session?.email, app.id) ? (
+                          <button
+                            onClick={() => handleAccessApp(app.id, app.url)}
+                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer"
+                          >
+                            <span>Acessar App</span>
+                            <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleAccessApp(app.id, app.url)}
+                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-100 text-slate-400 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all dark:bg-slate-800/50 dark:text-slate-500 cursor-not-allowed"
+                            title="Seu email não está autorizado a acessar este aplicativo"
+                          >
+                            <Lock size={13} />
+                            <span>Sem Autorização</span>
+                          </button>
+                        )}
                       </div>
                     </motion.div>
                   );
