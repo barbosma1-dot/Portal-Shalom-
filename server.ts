@@ -16,6 +16,11 @@ const appConfigs: Record<string, { urlVar: string; keyVar: string; defaultUrl: s
     keyVar: "SUPABASE_SERVICE_KEY_PASHALOM",
     defaultUrl: "https://pashalom.pages.dev"
   },
+  poshalom: {
+    urlVar: "SUPABASE_URL_POSHALOM",
+    keyVar: "SUPABASE_SERVICE_KEY_POSHALOM",
+    defaultUrl: "https://poshalom.pages.dev"
+  },
   wopsh: {
     urlVar: "SUPABASE_URL_WOPSH",
     keyVar: "SUPABASE_SERVICE_KEY_WOPSH",
@@ -56,11 +61,12 @@ async function startServer() {
         return {
           id,
           name: id === "pashalom" ? "PA Shalom" :
-                id === "wopsh" ? "Wopsh" :
-                id === "gestopro" ? "Gest-o-pro" :
-                id === "evansh" ? "Evansh" :
+                id === "poshalom" ? "PO Shalom" :
+                id === "wopsh" ? "WOP Shalom" :
+                id === "gestopro" ? "Gestão Pro" :
+                id === "evansh" ? "Evangelização Shalom" :
                 id === "adoracaoshalom" ? "Adoração Shalom" :
-                id === "cifrash" ? "Cifra Sh" : id,
+                id === "cifrash" ? "Cifras Shalom" : id,
           url: config.defaultUrl,
           hasKeys: Boolean(url && key)
         };
