@@ -25,7 +25,6 @@ import {
   Monitor
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
-import { isEmailAuthorizedForApp } from "./lib/authorization";
 import { CommunityApp, UserSession } from "./types";
 
 // List of static applications
@@ -109,22 +108,29 @@ export default function App() {
   const [success, setSuccess] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [failedIcons, setFailedIcons] = useState<Record<string, boolean>>({});
-  const [appsStatus, setAppsStatus] = useState<Record<string, { id: string; name: string; url: string; hasKeys: boolean }>>({});
 
   // Modals state
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPWAModal, setShowPWAModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [appsStatus, setAppsStatus] = useState<Record<string, { id: string; name: string; url: string; hasKeys: boolean; isAuthorized?: boolean }>>({});
 
   // Fetch app status configurations from local backend API
   useEffect(() => {
     const fetchAppsStatus = async () => {
       try {
-        const res = await fetch("/api/apps-status");
+        const headers: Record<string, string> = {};
+        if (session && !session.isMock && session.token) {
+          headers["Authorization"] = `Bearer ${session.token}`;
+        } else if (session?.isMock) {
+          headers["X-Mock-Email"] = session.email;
+        }
+
+        const res = await fetch("/api/apps-status", { headers });
         if (res.ok) {
           const data = await res.json();
-          const statusMap: Record<string, { id: string; name: string; url: string; hasKeys: boolean }> = {};
+          const statusMap: Record<string, { id: string; name: string; url: string; hasKeys: boolean; isAuthorized?: boolean }> = {};
           data.apps.forEach((app: any) => {
             statusMap[app.id] = app;
           });
@@ -325,13 +331,11 @@ export default function App() {
 
   const handleAccessApp = async (appId: string, appUrl: string) => {
     setError(null);
-
-    // Authorization gate: only emails explicitly listed in AUTHORIZED_ACCESS
-    // (src/lib/authorization.ts) can open an app, and only for the apps they
-    // were granted. This blocks both the real SSO flow and the fallback
-    // redirection below, no matter the session type (Google login or demo).
-    if (!isEmailAuthorizedForApp(session?.email, appId)) {
-      setError("Você não tem autorização para acessar este aplicativo. Fale com o administrador do Portal Shalom se acredita que isso é um engano.");
+    
+    // Enforce email authorization check
+    const appInfo = appsStatus[appId];
+    if (session && appInfo && !appInfo.isAuthorized) {
+      setError(`Acesso Negado: O e-mail "${session.email}" não possui autorização para o aplicativo "${staticApps.find(a => a.id === appId)?.name || appId}". O acesso universal é exclusivo do e-mail barbosma1@gmail.com.`);
       return;
     }
     
@@ -650,31 +654,42 @@ export default function App() {
                             </div>
                           ) : (
                             <img
-                              src={app.icon}
-                              alt={app.name}
-                              onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
-                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-800"
-                              referrerPolicy="no-referrer"
+                               src={app.icon}
+                               alt={app.name}
+                               onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
+                               className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-800"
+                               referrerPolicy="no-referrer"
                             />
                           )}
 
-                          {/* Connection indicator */}
-                          {!isEmailAuthorizedForApp(session?.email, app.id) ? (
-                            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-red-600 dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/15" title="Seu email não está autorizado a acessar este aplicativo">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                              <span className="flex items-center gap-0.5">Sem autorização <Lock size={10} /></span>
-                            </div>
-                          ) : appsStatus[app.id]?.hasKeys ? (
-                            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Conexão SSO segura e direta ativa">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              <span className="flex items-center gap-0.5">SSO Ativo <Lock size={10} /></span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/15" title="Utilizando redirecionamento seguro com chaves de simulação">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                              <span>Simulação</span>
-                            </div>
-                          )}
+                          {/* Dual status indicators */}
+                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5">
+                            {/* Connection indicator */}
+                            {appsStatus[app.id]?.hasKeys ? (
+                              <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Conexão SSO segura e direta ativa">
+                                <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                                <span>SSO</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/15" title="Utilizando redirecionamento seguro com chaves de simulação">
+                                <span className="w-1 h-1 rounded-full bg-amber-500" />
+                                <span>Simulado</span>
+                              </div>
+                            )}
+
+                            {/* Permission indicator */}
+                            {appsStatus[app.id]?.isAuthorized ? (
+                              <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Seu e-mail está cadastrado e autorizado">
+                                <Check size={10} />
+                                <span>Liberado</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/15" title="Acesso restrito. Solicite acesso ao administrador barbosma1@gmail.com">
+                                <Lock size={10} />
+                                <span>Restrito</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Title & Description */}
@@ -694,10 +709,10 @@ export default function App() {
 
                       {/* Action Link/Button */}
                       <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
-                        {isEmailAuthorizedForApp(session?.email, app.id) ? (
+                        {appsStatus[app.id]?.isAuthorized ? (
                           <button
                             onClick={() => handleAccessApp(app.id, app.url)}
-                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer"
+                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer font-sans"
                           >
                             <span>Acessar App</span>
                             <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
@@ -705,11 +720,11 @@ export default function App() {
                         ) : (
                           <button
                             onClick={() => handleAccessApp(app.id, app.url)}
-                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-100 text-slate-400 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all dark:bg-slate-800/50 dark:text-slate-500 cursor-not-allowed"
-                            title="Seu email não está autorizado a acessar este aplicativo"
+                            className="w-full h-9 sm:h-10 rounded-xl bg-slate-50 hover:bg-rose-50/50 text-slate-400 hover:text-rose-600 dark:bg-slate-850 dark:hover:bg-rose-950/20 dark:text-slate-500 dark:hover:text-rose-400 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all border border-slate-200/50 dark:border-slate-800/50 cursor-pointer font-sans"
+                            title="Acesso restrito. Clique para solicitar permissão."
                           >
-                            <Lock size={13} />
-                            <span>Sem Autorização</span>
+                            <Lock size={12} />
+                            <span>Acesso Restrito</span>
                           </button>
                         )}
                       </div>

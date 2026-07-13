@@ -48,32 +48,73 @@ const appConfigs: Record<string, { urlVar: string; keyVar: string; defaultUrl: s
   }
 };
 
-// Central authorization mapping: mirrors src/lib/authorization.ts.
-// Only emails listed here can have a real SSO magic link generated for them.
-// Use "all" to authorize every app, or an array of specific app ids.
-const AUTHORIZED_ACCESS: Record<string, "all" | string[]> = {
-  "barbosma1@gmail.com": "all",
+// Access Control List (ACL): Authorized emails for each app
+const appAuthorizations: Record<string, string[]> = {
+  pashalom: ["barbosma1@gmail.com"],
+  poshalom: ["barbosma1@gmail.com"],
+  gestopro: ["barbosma1@gmail.com"],
+  evansh: ["barbosma1@gmail.com"],
+  adoracaoshalom: ["barbosma1@gmail.com"],
+  cifrash: ["barbosma1@gmail.com"],
+  wopsh: ["barbosma1@gmail.com"]
 };
 
-function isEmailAuthorizedForApp(email: string | undefined | null, appId: string): boolean {
-  const normalized = (email || "").trim().toLowerCase();
-  if (!normalized) return false;
-  const access = AUTHORIZED_ACCESS[normalized];
-  if (!access) return false;
-  if (access === "all") return true;
-  return access.includes(appId);
+// Helper function to check if an email is authorized for a specific app
+function isUserAuthorizedForApp(email: string, appId: string): boolean {
+  if (!email) return false;
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  // barbosma1@gmail.com has universal access to all apps
+  if (normalizedEmail === "barbosma1@gmail.com") {
+    return true;
+  }
+  
+  // Visitor / Demo simulation email gets demo access to specific apps
+  if (normalizedEmail === "visitante.shalom@comunidadeshalom.org.br") {
+    return ["adoracaoshalom", "cifrash"].includes(appId);
+  }
+  
+  const authorizedList = appAuthorizations[appId] || [];
+  return authorizedList.map(e => e.toLowerCase().trim()).includes(normalizedEmail);
 }
 
 async function startServer() {
   const app = express();
   app.use(express.json());
 
-  // API Route: Get the configuration status of all community apps
-  app.get("/api/apps-status", (req, res) => {
+  // API Route: Get the configuration status of all community apps with authorization check
+  app.get("/api/apps-status", async (req, res) => {
     try {
+      let userEmail = "";
+      
+      const authHeader = req.headers.authorization;
+      const xMockEmail = req.headers["x-mock-email"];
+      
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.split(" ")[1];
+        const portalUrl = process.env.VITE_SUPABASE_URL;
+        const portalAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+        
+        if (portalUrl && portalAnonKey) {
+          try {
+            const portalClient = createClient(portalUrl, portalAnonKey);
+            const { data: { user } } = await portalClient.auth.getUser(token);
+            if (user && user.email) {
+              userEmail = user.email;
+            }
+          } catch (e) {
+            console.error("Erro ao verificar token em apps-status:", e);
+          }
+        }
+      } else if (xMockEmail && typeof xMockEmail === "string") {
+        userEmail = xMockEmail;
+      }
+
       const status = Object.entries(appConfigs).map(([id, config]) => {
         const url = process.env[config.urlVar];
         const key = process.env[config.keyVar];
+        const isAuthorized = userEmail ? isUserAuthorizedForApp(userEmail, id) : false;
+
         return {
           id,
           name: id === "pashalom" ? "PA Shalom" :
@@ -84,10 +125,11 @@ async function startServer() {
                 id === "adoracaoshalom" ? "Adoração Shalom" :
                 id === "cifrash" ? "Cifras Shalom" : id,
           url: config.defaultUrl,
-          hasKeys: Boolean(url && key)
+          hasKeys: Boolean(url && key),
+          isAuthorized
         };
       });
-      res.json({ apps: status });
+      res.json({ apps: status, userEmail });
     } catch (err: any) {
       res.status(500).json({ error: "Erro ao listar status dos aplicativos: " + err.message });
     }
@@ -135,12 +177,11 @@ async function startServer() {
         return res.status(401).json({ error: "Usuário não autenticado ou sessão expirada no Portal Shalom." });
       }
 
-      // Authorization gate: only emails explicitly listed in AUTHORIZED_ACCESS
-      // can have a real magic link generated, and only for apps they were
-      // granted. This is the real security boundary — the frontend check
-      // exists only for UX, this one cannot be bypassed by the browser.
-      if (!isEmailAuthorizedForApp(user.email, appId)) {
-        return res.status(403).json({ error: "Este email não está autorizado a acessar este aplicativo." });
+      // Strict Authorization Check
+      if (!isUserAuthorizedForApp(user.email, appId)) {
+        return res.status(403).json({ 
+          error: `Acesso negado. O e-mail '${user.email}' não possui autorização de acesso para este aplicativo. Entre em contato com o administrador barbosma1@gmail.com para solicitar acesso.` 
+        });
       }
 
       // Initialize Target App's Supabase with its Service Role Key
