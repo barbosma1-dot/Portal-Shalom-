@@ -35,7 +35,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ session }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"iiee" | "perms" | "users" | "missions" | "nps">("iiee");
+  const [activeTab, setActiveTab] = useState<"iiee" | "perms" | "users" | "missions" | "nps" | "admins">("iiee");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -49,6 +49,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
   const [reports, setReports] = useState<any[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [hasDatabase, setHasDatabase] = useState(true);
+  const [admins, setAdmins] = useState<any[]>([]);
 
   // Search states
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,6 +58,9 @@ export default function AdminPanel({ session }: AdminPanelProps) {
   // Form states - SSO Authorizations
   const [newPermEmail, setNewPermEmail] = useState("");
   const [newPermAppId, setNewPermAppId] = useState("pashalom");
+
+  // Form states - Portal Administrators
+  const [newAdminEmail, setNewAdminEmail] = useState("");
 
   // Form states - Missions
   const [newMissionName, setNewMissionName] = useState("");
@@ -174,6 +178,22 @@ export default function AdminPanel({ session }: AdminPanelProps) {
     }
   };
 
+  // 6. Fetch Portal Administrators
+  const fetchAdmins = async () => {
+    try {
+      const res = await fetch("/api/admin/admins", { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAdmins(data.admins || []);
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao carregar administradores.");
+      }
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   // Load active tab data
   useEffect(() => {
     setError(null);
@@ -189,8 +209,55 @@ export default function AdminPanel({ session }: AdminPanelProps) {
     } else if (activeTab === "nps") {
       fetchEventNps();
       fetchMissions();
+    } else if (activeTab === "admins") {
+      fetchAdmins();
     }
   }, [activeTab]);
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminEmail) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/admins", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ email: newAdminEmail })
+      });
+      if (res.ok) {
+        setSuccess("Novo administrador adicionado com sucesso!");
+        setNewAdminEmail("");
+        fetchAdmins();
+        setTimeout(() => setSuccess(null), 3500);
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao adicionar administrador.");
+      }
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string) => {
+    if (!confirm("Tem certeza de que deseja remover este administrador do Portal?")) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/admins?id=${id}`, {
+        method: "DELETE",
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        setSuccess("Administrador removido com sucesso!");
+        fetchAdmins();
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao excluir administrador.");
+      }
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
 
   // SSO Form Submissions
   const handleAddPermission = async (e: React.FormEvent) => {
@@ -526,6 +593,18 @@ export default function AdminPanel({ session }: AdminPanelProps) {
           <Smile size={15} />
           <span>Lançamento NPS</span>
         </button>
+        <button
+          onClick={() => setActiveTab("admins")}
+          className={`flex items-center gap-2 px-4 py-4 border-b-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            activeTab === "admins"
+              ? "border-amber-500 text-slate-900 dark:text-white"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+          }`}
+          id="tab-button-admins"
+        >
+          <Shield size={15} className="text-amber-500" />
+          <span>Administradores</span>
+        </button>
       </div>
 
       <div className="p-6 sm:p-8" id="admin-panel-tabs-content">
@@ -620,13 +699,19 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                         {reports.map((report) => {
-                          const iieeVal = report.iiee?.value || 0;
+                          const hasIiee = report.iiee && report.iiee.value !== null && report.iiee.value !== undefined;
+                          const iieeVal = hasIiee ? report.iiee.value : null;
+                          const hasNps = report.iiee && report.iiee.npsValue !== null && report.iiee.npsValue !== undefined;
+                          const npsValue = hasNps ? report.iiee.npsValue : null;
                           
                           // IIEE color tags
-                          let iieeBg = "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border-rose-200";
-                          if (iieeVal >= 85) iieeBg = "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border-emerald-200";
-                          else if (iieeVal >= 70) iieeBg = "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 border-blue-200";
-                          else if (iieeVal >= 50) iieeBg = "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border-amber-200";
+                          let iieeBg = "bg-slate-50 text-slate-400 dark:bg-slate-900/50 dark:text-slate-500 border-slate-200";
+                          if (iieeVal !== null) {
+                            if (iieeVal >= 85) iieeBg = "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border-emerald-200";
+                            else if (iieeVal >= 70) iieeBg = "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 border-blue-200";
+                            else if (iieeVal >= 50) iieeBg = "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border-amber-200";
+                            else iieeBg = "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border-rose-200";
+                          }
 
                           return (
                             <tr key={report.canonicalName} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
@@ -647,17 +732,21 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                               <td className="p-4">
                                 <div className="flex items-center gap-2">
                                   <div className={`px-2.5 py-1 text-sm font-bold border rounded-lg ${iieeBg}`}>
-                                    {iieeVal}
+                                    {iieeVal !== null ? `${iieeVal}%` : "Sem dados"}
                                   </div>
                                   <div className="w-20 bg-slate-100 dark:bg-slate-850 h-2 rounded-full overflow-hidden shrink-0">
-                                    <div 
-                                      className={`h-full ${
-                                        iieeVal >= 85 ? "bg-emerald-500" :
-                                        iieeVal >= 70 ? "bg-blue-500" :
-                                        iieeVal >= 50 ? "bg-amber-500" : "bg-rose-500"
-                                      }`}
-                                      style={{ width: `${iieeVal}%` }}
-                                    />
+                                    {iieeVal !== null ? (
+                                      <div 
+                                        className={`h-full ${
+                                          iieeVal >= 85 ? "bg-emerald-500" :
+                                          iieeVal >= 70 ? "bg-blue-500" :
+                                          iieeVal >= 50 ? "bg-amber-500" : "bg-rose-500"
+                                        }`}
+                                        style={{ width: `${iieeVal}%` }}
+                                      />
+                                    ) : (
+                                      <div className="h-full bg-slate-200 dark:bg-slate-800" style={{ width: "0%" }} />
+                                    )}
                                   </div>
                                 </div>
                               </td>
@@ -672,7 +761,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                                     <div className="text-[9px] text-slate-400 mt-0.5 uppercase tracking-wide font-mono">PO Shalom</div>
                                   </div>
                                 ) : (
-                                  <span className="text-slate-400">—</span>
+                                  <span className="text-slate-400 font-mono text-[11px]">Sem dados</span>
                                 )}
                               </td>
 
@@ -686,32 +775,37 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                                     <div className="text-[9px] text-slate-400 mt-0.5 uppercase tracking-wide font-mono">{report.evansh.contactsCount} contatos</div>
                                   </div>
                                 ) : (
-                                  <span className="text-slate-400">—</span>
+                                  <span className="text-slate-400 font-mono text-[11px]">Sem dados</span>
                                 )}
                               </td>
 
                               {/* Unified Event NPS Output */}
                               <td className="p-4 text-center">
-                                <div>
-                                  <div className="font-semibold text-slate-800 dark:text-slate-200">
-                                    {report.iiee?.npsValue || 0}
+                                {npsValue !== null ? (
+                                  <div>
+                                    <div className="font-semibold text-slate-800 dark:text-slate-200">
+                                      {npsValue}
+                                    </div>
+                                    <div className="text-[9px] text-slate-400 mt-0.5 uppercase truncate max-w-[120px] mx-auto" title={report.iiee?.eventName}>
+                                      {report.iiee?.eventName || "Geral"}
+                                    </div>
                                   </div>
-                                  <div className="text-[9px] text-slate-400 mt-0.5 uppercase truncate max-w-[120px] mx-auto" title={report.iiee?.eventName}>
-                                    {report.iiee?.eventName || "Geral"}
-                                  </div>
-                                </div>
+                                ) : (
+                                  <span className="text-slate-400 font-mono text-[11px]">Sem dados</span>
+                                )}
                               </td>
 
                               {/* Final Classification Title */}
                               <td className="p-4 text-right">
                                 <span className={`inline-block px-2 py-0.5 font-semibold rounded-full text-[10px] ${
+                                  iieeVal === null ? "bg-slate-100 text-slate-500 dark:bg-slate-850 dark:text-slate-400" :
                                   iieeVal >= 90 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" :
                                   iieeVal >= 75 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400" :
                                   iieeVal >= 60 ? "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400" :
                                   iieeVal >= 40 ? "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400" :
                                   "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-red-400"
                                 }`}>
-                                  {report.iiee?.classification || "Não Classificado"}
+                                  {report.iiee?.classification || "Sem dados"}
                                 </span>
                               </td>
                             </tr>

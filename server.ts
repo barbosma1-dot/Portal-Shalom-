@@ -105,6 +105,34 @@ async function isUserAuthorizedForApp(email: string, appId: string): Promise<boo
   return authorizedList.map(e => e.toLowerCase().trim()).includes(normalizedEmail);
 }
 
+// Helper to check if an email is an administrator of the Portal
+async function isAdminEmail(email: string): Promise<boolean> {
+  if (!email) return false;
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  if (normalizedEmail === "visitante.shalom@comunidadeshalom.org.br") {
+    return false;
+  }
+  
+  try {
+    const portalClient = getPortalClient();
+    const { data, error } = await portalClient
+      .from("portal_admins")
+      .select("id")
+      .eq("email", normalizedEmail);
+      
+    if (error) {
+      console.warn("[Local Fallback] Error reading portal_admins table:", error.message);
+      return normalizedEmail === "barbosma1@gmail.com";
+    }
+    
+    return data && data.length > 0;
+  } catch (err: any) {
+    console.error("Error checking isAdminEmail:", err.message);
+    return normalizedEmail === "barbosma1@gmail.com";
+  }
+}
+
 // Helper to retrieve verified user email from request
 async function getUserEmail(req: express.Request): Promise<string | null> {
   const authHeader = req.headers.authorization;
@@ -257,7 +285,7 @@ async function startServer() {
   app.get("/api/admin/authorizations", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -275,14 +303,14 @@ async function startServer() {
       }
       res.json({ authorizations: data || [] });
     } catch (err: any) {
-      res.status(550).json({ error: err.message });
+      res.status(500).json({ error: err.message });
     }
   });
 
   app.post("/api/admin/authorizations", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -307,7 +335,7 @@ async function startServer() {
   app.delete("/api/admin/authorizations", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -327,11 +355,121 @@ async function startServer() {
     }
   });
 
+  // API Route: Portal Admins CRUD (GET, POST, DELETE)
+  app.get("/api/admin/admins", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || !(await isAdminEmail(email))) {
+        return res.status(403).json({ error: "Acesso restrito a administradores." });
+      }
+
+      const portalClient = getPortalClient();
+      const { data, error } = await portalClient
+        .from("portal_admins")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        if (error.code === "PGRST116" || error.message.includes("does not exist")) {
+          return res.json({ admins: [] });
+        }
+        return res.status(500).json({ error: error.message });
+      }
+      res.json({ admins: data || [] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/admin/admins", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || !(await isAdminEmail(email))) {
+        return res.status(403).json({ error: "Acesso restrito a administradores." });
+      }
+
+      const { email: adminEmail } = req.body;
+      if (!adminEmail) {
+        return res.status(400).json({ error: "E-mail do administrador é obrigatório." });
+      }
+
+      const portalClient = getPortalClient();
+      const { data, error } = await portalClient
+        .from("portal_admins")
+        .insert([{ email: adminEmail.toLowerCase().trim(), added_by: email }])
+        .select();
+
+      if (error) return res.status(400).json({ error: error.message });
+      res.json({ success: true, admin: data?.[0] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/admin/admins", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || !(await isAdminEmail(email))) {
+        return res.status(403).json({ error: "Acesso restrito a administradores." });
+      }
+
+      const { id } = req.query;
+      if (!id) return res.status(400).json({ error: "ID do administrador obrigatório." });
+
+      const portalClient = getPortalClient();
+      
+      // Fetch the record to delete
+      const { data: targetAdmin, error: findError } = await portalClient
+        .from("portal_admins")
+        .select("email")
+        .eq("id", id)
+        .single();
+
+      if (findError) return res.status(400).json({ error: findError.message });
+      if (!targetAdmin) return res.status(404).json({ error: "Administrador não encontrado." });
+
+      if (targetAdmin.email.toLowerCase().trim() === email.toLowerCase().trim()) {
+        const { count, error: countError } = await portalClient
+          .from("portal_admins")
+          .select("id", { count: "exact", head: true });
+
+        if (countError) return res.status(400).json({ error: countError.message });
+        if (count !== null && count <= 1) {
+          return res.status(400).json({ error: "Você não pode remover a si mesmo pois você é o único administrador restante do Portal." });
+        }
+      }
+
+      const { error: deleteError } = await portalClient
+        .from("portal_admins")
+        .delete()
+        .eq("id", id);
+
+      if (deleteError) return res.status(400).json({ error: deleteError.message });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: Admin Whoami check
+  app.get("/api/admin/whoami", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email) {
+        return res.json({ isAdmin: false, email: null });
+      }
+      const isAd = await isAdminEmail(email);
+      res.json({ isAdmin: isAd, email });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // API Route: Unified user directory across all apps
   app.get("/api/admin/all-users", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -440,7 +578,7 @@ async function startServer() {
   app.get("/api/admin/missions", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -467,7 +605,7 @@ async function startServer() {
   app.post("/api/admin/missions", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -518,7 +656,7 @@ async function startServer() {
   app.get("/api/admin/nps", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -548,7 +686,7 @@ async function startServer() {
   app.post("/api/admin/nps", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -592,7 +730,7 @@ async function startServer() {
   app.delete("/api/admin/nps", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -612,7 +750,7 @@ async function startServer() {
   function getFinancialScore(pct: number): number {
     if (pct > 15) return 100;
     if (pct >= 5) return 85;
-    if (pct > 0) return 75;
+    if (pct > 0) return 75; // Intermediate surplus
     if (pct === 0) return 70;
     if (pct >= -5) return 50;
     if (pct >= -15) return 30;
@@ -646,7 +784,7 @@ async function startServer() {
   app.get("/api/admin/reports-summary", async (req, res) => {
     try {
       const email = await getUserEmail(req);
-      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+      if (!email || !(await isAdminEmail(email))) {
         return res.status(403).json({ error: "Acesso restrito ao administrador." });
       }
 
@@ -655,6 +793,7 @@ async function startServer() {
       let missions: any[] = [];
       let mappings: any[] = [];
       let eventNps: any[] = [];
+      let hasDatabase = true;
 
       try {
         const portalClient = getPortalClient();
@@ -666,16 +805,13 @@ async function startServer() {
         if (mRes.data) missions = mRes.data;
         if (mapRes.data) mappings = mapRes.data;
         if (npsRes.data) eventNps = npsRes.data;
-      } catch (e) {
-        console.warn("Using offline fallback missions in Express backend");
-      }
 
-      if (missions.length === 0) {
-        missions = [
-          { id: "m1", canonical_name: "Guarulhos Centro" },
-          { id: "m2", canonical_name: "Fortaleza Centro" },
-          { id: "m3", canonical_name: "São Paulo Centro" }
-        ];
+        if (mRes.error && mRes.error.message.includes("does not exist")) {
+          hasDatabase = false;
+        }
+      } catch (e) {
+        console.warn("Dificuldades ao carregar Portal Database em Express:", e);
+        hasDatabase = false;
       }
 
       const mappingDict = new Map<string, string>();
@@ -700,76 +836,63 @@ async function startServer() {
       };
 
       const activeApps = ["evansh", "wopsh", "gestopro", "pashalom", "adoracaoshalom", "cifrash", "poshalom"];
-      const fetchedReports: Record<string, { data: any[]; isSimulated: boolean }> = {};
+      const fetchedReports: Record<string, { data: any[]; isSimulated: boolean; unavailable?: boolean; reason?: string }> = {};
       const appWarnings: string[] = [];
-
-      const mockSubReports: Record<string, any[]> = {
-        evansh: [
-          { mission_name: "Guarulhos Centro", contacts_count: 1420, engagement_rate: 22 },
-          { mission_name: "Fortaleza Centro", contacts_count: 3100, engagement_rate: 18 },
-          { mission_name: "São Paulo Centro", contacts_count: 2400, engagement_rate: 14 }
-        ],
-        wopsh: [
-          { mission_name: "Guarulhos Centro", members_obra: 120, members_cal: 45, members_cv: 15 },
-          { mission_name: "Fortaleza Centro", members_obra: 340, members_cal: 110, members_cv: 55 },
-          { mission_name: "São Paulo Centro", members_obra: 210, members_cal: 85, members_cv: 30 }
-        ],
-        gestopro: [
-          { branch_name: "Guarulhos Centro", sales_count: 85, revenue: 15800, costs: 8200 },
-          { branch_name: "Fortaleza Centro", sales_count: 210, revenue: 45000, costs: 22000 },
-          { branch_name: "São Paulo Centro", sales_count: 150, revenue: 32000, costs: 18500 }
-        ],
-        pashalom: [
-          { mission_name: "Guarulhos Centro", actions_planned: 12, actions_done: 9, budget_planned: 5000, budget_actual: 4800 },
-          { mission_name: "Fortaleza Centro", actions_planned: 25, actions_done: 22, budget_planned: 12000, budget_actual: 11500 },
-          { mission_name: "São Paulo Centro", actions_planned: 18, actions_done: 12, budget_planned: 8500, budget_actual: 9100 }
-        ],
-        adoracaoshalom: [
-          { mission_name: "Guarulhos Centro", participants_high: 45, participants_medium: 25, participants_low: 10, scale_occupancy_pct: 88 },
-          { mission_name: "Fortaleza Centro", participants_high: 120, participants_medium: 60, participants_low: 25, scale_occupancy_pct: 94 },
-          { mission_name: "São Paulo Centro", participants_high: 75, participants_medium: 40, participants_low: 15, scale_occupancy_pct: 82 }
-        ],
-        cifrash: [
-          { mission_name: "Guarulhos Centro", total_repertoires: 35, total_cords: 140 },
-          { mission_name: "Fortaleza Centro", total_repertoires: 72, total_cords: 285 },
-          { mission_name: "São Paulo Centro", total_repertoires: 48, total_cords: 190 }
-        ],
-        poshalom: [
-          { mission_name: "Guarulhos Centro", financial_result_pct: 18, event_name: "Acampamento de Jovens" },
-          { mission_name: "Fortaleza Centro", financial_result_pct: 8, event_name: "Renascer" },
-          { mission_name: "São Paulo Centro", financial_result_pct: -12, event_name: "Seminário de Vida no Espírito" }
-        ]
-      };
 
       await Promise.all(
         activeApps.map(async (appId) => {
           const config = appConfigs[appId];
           if (!config) return;
 
-          try {
-            const targetUrl = process.env[config.urlVar];
-            const appKey = process.env[config.keyVar];
-            if (targetUrl && appKey) {
-              const fetchRes = await fetch(`${config.defaultUrl}/api/reports/summary`, {
-                headers: { "Authorization": `Bearer ${appKey}`, "Content-Type": "application/json" }
-              });
-              if (fetchRes.ok) {
-                const result: any = await fetchRes.json();
-                if (result && (result.missionData || result.branchData)) {
-                  fetchedReports[appId] = {
-                    data: result.missionData || result.branchData,
-                    isSimulated: false
-                  };
-                  return;
-                }
-              }
-            }
-          } catch (e) {
-            console.warn(`Local simulation for ${appId}`);
+          const targetUrl = process.env[config.urlVar];
+          const appKey = process.env[config.keyVar];
+
+          if (!targetUrl || !appKey) {
+            fetchedReports[appId] = {
+              data: [],
+              isSimulated: false,
+              unavailable: true,
+              reason: `Chaves de acesso (${config.urlVar} / ${config.keyVar}) não configuradas no ambiente.`
+            };
+            appWarnings.push(appId);
+            return;
           }
 
-          fetchedReports[appId] = { data: mockSubReports[appId] || [], isSimulated: true };
-          appWarnings.push(appId);
+          try {
+            const apiEndpoint = `${config.defaultUrl}/api/reports/summary`;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+
+            const fetchRes = await fetch(apiEndpoint, {
+              headers: {
+                "Authorization": `Bearer ${appKey}`,
+                "Content-Type": "application/json"
+              },
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (fetchRes.ok) {
+              const result: any = await fetchRes.json();
+              if (result && (result.missionData || result.branchData)) {
+                fetchedReports[appId] = {
+                  data: result.missionData || result.branchData,
+                  isSimulated: false
+                };
+                return;
+              }
+            }
+            throw new Error(`Código HTTP de erro: ${fetchRes.status}`);
+          } catch (e: any) {
+            console.warn(`Erro ao conectar com API do app ${appId} em Express:`, e.message);
+            fetchedReports[appId] = {
+              data: [],
+              isSimulated: false,
+              unavailable: true,
+              reason: `Erro na conexão com o sub-aplicativo: ${e.message || "Timeout de conexão"}`
+            };
+            appWarnings.push(appId);
+          }
         })
       );
 
@@ -781,47 +904,102 @@ async function startServer() {
         return groupedReports[canonicalName];
       };
 
-      fetchedReports.evansh.data.forEach(item => {
-        const { canonicalName, isMapped } = resolveMission("evansh", item.mission_name);
-        const group = getGroup(canonicalName, isMapped);
-        group.evansh = { contactsCount: item.contacts_count, engagementRate: item.engagement_rate, isSimulated: fetchedReports.evansh.isSimulated };
-      });
+      // A. Evansh
+      if (fetchedReports.evansh && !fetchedReports.evansh.unavailable) {
+        fetchedReports.evansh.data.forEach(item => {
+          const { canonicalName, isMapped } = resolveMission("evansh", item.mission_name);
+          const group = getGroup(canonicalName, isMapped);
+          group.evansh = {
+            contactsCount: item.contacts_count,
+            engagementRate: item.engagement_rate,
+            isSimulated: false
+          };
+        });
+      }
 
-      fetchedReports.wopsh.data.forEach(item => {
-        const { canonicalName, isMapped } = resolveMission("wopsh", item.mission_name);
-        const group = getGroup(canonicalName, isMapped);
-        group.wopsh = { obra: item.members_obra, cal: item.members_cal, cv: item.members_cv, isSimulated: fetchedReports.wopsh.isSimulated };
-      });
+      // B. Wopsh
+      if (fetchedReports.wopsh && !fetchedReports.wopsh.unavailable) {
+        fetchedReports.wopsh.data.forEach(item => {
+          const { canonicalName, isMapped } = resolveMission("wopsh", item.mission_name);
+          const group = getGroup(canonicalName, isMapped);
+          group.wopsh = {
+            obra: item.members_obra,
+            cal: item.members_cal,
+            cv: item.members_cv,
+            isSimulated: false
+          };
+        });
+      }
 
-      fetchedReports.gestopro.data.forEach(item => {
-        const { canonicalName, isMapped } = resolveMission("gestopro", item.branch_name);
-        const group = getGroup(canonicalName, isMapped);
-        group.gestopro = { salesCount: item.sales_count, revenue: item.revenue, costs: item.costs, isSimulated: fetchedReports.gestopro.isSimulated };
-      });
+      // C. Gestão Pro
+      if (fetchedReports.gestopro && !fetchedReports.gestopro.unavailable) {
+        fetchedReports.gestopro.data.forEach(item => {
+          const { canonicalName, isMapped } = resolveMission("gestopro", item.branch_name);
+          const group = getGroup(canonicalName, isMapped);
+          group.gestopro = {
+            salesCount: item.sales_count,
+            revenue: item.revenue,
+            costs: item.costs,
+            isSimulated: false
+          };
+        });
+      }
 
-      fetchedReports.pashalom.data.forEach(item => {
-        const { canonicalName, isMapped } = resolveMission("pashalom", item.mission_name);
-        const group = getGroup(canonicalName, isMapped);
-        group.pashalom = { actionsPlanned: item.actions_planned, actionsDone: item.actions_done, budgetPlanned: item.budget_planned, budgetActual: item.budget_actual, isSimulated: fetchedReports.pashalom.isSimulated };
-      });
+      // D. PA Shalom
+      if (fetchedReports.pashalom && !fetchedReports.pashalom.unavailable) {
+        fetchedReports.pashalom.data.forEach(item => {
+          const { canonicalName, isMapped } = resolveMission("pashalom", item.mission_name);
+          const group = getGroup(canonicalName, isMapped);
+          group.pashalom = {
+            actionsPlanned: item.actions_planned,
+            actionsDone: item.actions_done,
+            budgetPlanned: item.budget_planned,
+            budgetActual: item.budget_actual,
+            isSimulated: false
+          };
+        });
+      }
 
-      fetchedReports.adoracaoshalom.data.forEach(item => {
-        const { canonicalName, isMapped } = resolveMission("adoracaoshalom", item.mission_name);
-        const group = getGroup(canonicalName, isMapped);
-        group.adoracaoshalom = { high: item.participants_high, medium: item.participants_medium, low: item.participants_low, occupancy: item.scale_occupancy_pct, isSimulated: fetchedReports.adoracaoshalom.isSimulated };
-      });
+      // E. Adoração Shalom
+      if (fetchedReports.adoracaoshalom && !fetchedReports.adoracaoshalom.unavailable) {
+        fetchedReports.adoracaoshalom.data.forEach(item => {
+          const { canonicalName, isMapped } = resolveMission("adoracaoshalom", item.mission_name);
+          const group = getGroup(canonicalName, isMapped);
+          group.adoracaoshalom = {
+            high: item.participants_high,
+            medium: item.participants_medium,
+            low: item.participants_low,
+            occupancy: item.scale_occupancy_pct,
+            isSimulated: false
+          };
+        });
+      }
 
-      fetchedReports.cifrash.data.forEach(item => {
-        const { canonicalName, isMapped } = resolveMission("cifrash", item.mission_name);
-        const group = getGroup(canonicalName, isMapped);
-        group.cifrash = { totalRepertoires: item.total_repertoires, totalCords: item.total_cords, isSimulated: fetchedReports.cifrash.isSimulated };
-      });
+      // F. Cifras Shalom
+      if (fetchedReports.cifrash && !fetchedReports.cifrash.unavailable) {
+        fetchedReports.cifrash.data.forEach(item => {
+          const { canonicalName, isMapped } = resolveMission("cifrash", item.mission_name);
+          const group = getGroup(canonicalName, isMapped);
+          group.cifrash = {
+            totalRepertoires: item.total_repertoires,
+            totalCords: item.total_cords,
+            isSimulated: false
+          };
+        });
+      }
 
-      fetchedReports.poshalom.data.forEach(item => {
-        const { canonicalName, isMapped } = resolveMission("poshalom", item.mission_name);
-        const group = getGroup(canonicalName, isMapped);
-        group.poshalom = { financialResultPct: item.financial_result_pct, eventName: item.event_name, isSimulated: fetchedReports.poshalom.isSimulated };
-      });
+      // G. PO Shalom
+      if (fetchedReports.poshalom && !fetchedReports.poshalom.unavailable) {
+        fetchedReports.poshalom.data.forEach(item => {
+          const { canonicalName, isMapped } = resolveMission("poshalom", item.mission_name);
+          const group = getGroup(canonicalName, isMapped);
+          group.poshalom = {
+            financialResultPct: item.financial_result_pct,
+            eventName: item.event_name,
+            isSimulated: false
+          };
+        });
+      }
 
       missions.forEach(mission => {
         const name = mission.canonical_name;
@@ -832,29 +1010,56 @@ async function startServer() {
         const hasEngagement = group.evansh !== undefined;
 
         const npsRecord = eventNps.find(n => n.mission_registry_id === mission.id);
-        let pPct = 65, dPct = 15, customEventName = "Evento Geral";
+        
+        let pPct = 0;
+        let dPct = 0;
+        let customEventName: string | null = null;
+        let npsValue: number | null = null;
+        let npsScore: number | null = null;
+        let npsLabel = "Sem dados";
 
         if (npsRecord) {
           pPct = npsRecord.promoters_pct;
           dPct = npsRecord.detractors_pct;
           customEventName = npsRecord.event_name;
-        } else {
-          if (name === "Guarulhos Centro") { pPct = 78; dPct = 8; customEventName = "Acampamento de Jovens"; }
-          if (name === "Fortaleza Centro") { pPct = 84; dPct = 4; customEventName = "Renascer"; }
-          if (name === "São Paulo Centro") { pPct = 52; dPct = 28; customEventName = "Seminário de Vida no Espírito"; }
+          npsValue = pPct - dPct;
+          const rating = getNpsScoreAndClass(npsValue);
+          npsScore = rating.score;
+          npsLabel = rating.label;
         }
 
-        const npsValue = pPct - dPct;
-        const { score: npsScore, label: npsLabel } = getNpsScoreAndClass(npsValue);
+        const financialResultPct = hasFinance ? group.poshalom!.financialResultPct : null;
+        const financialScore = financialResultPct !== null ? getFinancialScore(financialResultPct) : null;
 
-        const financialResultPct = hasFinance ? group.poshalom.financialResultPct : 0;
-        const financialScore = getFinancialScore(financialResultPct);
+        const engagementRate = hasEngagement ? group.evansh!.engagementRate : null;
+        const engagementScore = engagementRate !== null ? getEngagementScore(engagementRate) : null;
 
-        const engagementRate = hasEngagement ? group.evansh.engagementRate : 0;
-        const engagementScore = getEngagementScore(engagementRate);
+        let iieeValue: number | null = null;
+        let classification = "Sem dados";
 
-        const iieeValue = Math.round((financialScore * 0.35) + (engagementScore * 0.45) + (npsScore * 0.20));
-        const classification = getIieeClassification(iieeValue);
+        let totalWeight = 0;
+        let weightedSum = 0;
+
+        if (financialScore !== null) {
+          const w = npsScore !== null ? 0.35 : 0.45;
+          totalWeight += w;
+          weightedSum += financialScore * w;
+        }
+        if (engagementScore !== null) {
+          const w = npsScore !== null ? 0.45 : 0.55;
+          totalWeight += w;
+          weightedSum += engagementScore * w;
+        }
+        if (npsScore !== null) {
+          const w = 0.20;
+          totalWeight += w;
+          weightedSum += npsScore * w;
+        }
+
+        if (totalWeight > 0) {
+          iieeValue = Math.round(weightedSum / totalWeight);
+          classification = getIieeClassification(iieeValue);
+        }
 
         group.iiee = {
           value: iieeValue,
@@ -868,7 +1073,20 @@ async function startServer() {
         };
       });
 
-      res.json({ reports: Object.values(groupedReports), warnings: appWarnings });
+      const appAvailability: Record<string, { unavailable: boolean; reason?: string }> = {};
+      activeApps.forEach(appId => {
+        appAvailability[appId] = {
+          unavailable: fetchedReports[appId]?.unavailable || false,
+          reason: fetchedReports[appId]?.reason
+        };
+      });
+
+      res.json({
+        reports: Object.values(groupedReports),
+        warnings: appWarnings,
+        hasDatabase,
+        appAvailability
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

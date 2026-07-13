@@ -105,6 +105,7 @@ const staticApps = [
 
 export default function App() {
   const [session, setSession] = useState<UserSession | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -143,6 +144,36 @@ export default function App() {
       }
     };
     fetchAppsStatus();
+  }, [session]);
+
+  // Verify administrative status from backend API
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!session) {
+        setIsAdmin(false);
+        return;
+      }
+      try {
+        const headers: Record<string, string> = {};
+        if (!session.isMock && session.token) {
+          headers["Authorization"] = `Bearer ${session.token}`;
+        } else if (session.isMock) {
+          headers["X-Mock-Email"] = session.email;
+        }
+
+        const res = await fetch("/api/admin/whoami", { headers });
+        if (res.ok) {
+          const data = await res.json();
+          setIsAdmin(!!data.isAdmin);
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (err) {
+        console.error("Erro ao verificar status de admin:", err);
+        setIsAdmin(false);
+      }
+    };
+    checkAdminStatus();
   }, [session]);
 
   const handleDemoLogin = () => {
@@ -337,7 +368,7 @@ export default function App() {
     // Enforce email authorization check
     const appInfo = appsStatus[appId];
     if (session && appInfo && !appInfo.isAuthorized) {
-      setError(`Acesso Negado: O e-mail "${session.email}" não possui autorização para o aplicativo "${staticApps.find(a => a.id === appId)?.name || appId}". O acesso universal é exclusivo do e-mail barbosma1@gmail.com.`);
+      setError(`Acesso Negado: O e-mail "${session.email}" não possui autorização para o aplicativo "${staticApps.find(a => a.id === appId)?.name || appId}". O acesso universal é restrito a administradores.`);
       return;
     }
     

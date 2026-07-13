@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { appConfigs, getUserEmailFromRequest, jsonResponse, handleOptions, getPortalClient } from "../_shared";
+import { appConfigs, getUserEmailFromRequest, jsonResponse, handleOptions, getPortalClient, isAdminEmail } from "../_shared";
 
 export const onRequestOptions = handleOptions;
 
@@ -37,53 +37,12 @@ function getIieeClassification(iiee: number): string {
   return "Crítico";
 }
 
-// Beautiful simulated reports to use as fallbacks for offline or unconfigured apps
-const mockSubReports: Record<string, any[]> = {
-  evansh: [
-    { mission_name: "Guarulhos Centro", contacts_count: 1420, engagement_rate: 22 },
-    { mission_name: "Fortaleza Centro", contacts_count: 3100, engagement_rate: 18 },
-    { mission_name: "São Paulo Centro", contacts_count: 2400, engagement_rate: 14 }
-  ],
-  wopsh: [
-    { mission_name: "Guarulhos Centro", members_obra: 120, members_cal: 45, members_cv: 15 },
-    { mission_name: "Fortaleza Centro", members_obra: 340, members_cal: 110, members_cv: 55 },
-    { mission_name: "São Paulo Centro", members_obra: 210, members_cal: 85, members_cv: 30 }
-  ],
-  gestopro: [
-    { branch_name: "Guarulhos Centro", sales_count: 85, revenue: 15800, costs: 8200 },
-    { branch_name: "Fortaleza Centro", sales_count: 210, revenue: 45000, costs: 22000 },
-    { branch_name: "São Paulo Centro", sales_count: 150, revenue: 32000, costs: 18500 }
-  ],
-  pashalom: [
-    { mission_name: "Guarulhos Centro", actions_planned: 12, actions_done: 9, budget_planned: 5000, budget_actual: 4800 },
-    { mission_name: "Fortaleza Centro", actions_planned: 25, actions_done: 22, budget_planned: 12000, budget_actual: 11500 },
-    { mission_name: "São Paulo Centro", actions_planned: 18, actions_done: 12, budget_planned: 8500, budget_actual: 9100 }
-  ],
-  adoracaoshalom: [
-    { mission_name: "Guarulhos Centro", participants_high: 45, participants_medium: 25, participants_low: 10, scale_occupancy_pct: 88 },
-    { mission_name: "Fortaleza Centro", participants_high: 120, participants_medium: 60, participants_low: 25, scale_occupancy_pct: 94 },
-    { mission_name: "São Paulo Centro", participants_high: 75, participants_medium: 40, participants_low: 15, scale_occupancy_pct: 82 }
-  ],
-  cifrash: [
-    { mission_name: "Guarulhos Centro", total_repertoires: 35, total_cords: 140 },
-    { mission_name: "Fortaleza Centro", total_repertoires: 72, total_cords: 285 },
-    { mission_name: "São Paulo Centro", total_repertoires: 48, total_cords: 190 }
-  ],
-  poshalom: [
-    { mission_name: "Guarulhos Centro", financial_result_pct: 18, event_name: "Acampamento de Jovens" },
-    { mission_name: "Fortaleza Centro", financial_result_pct: 8, event_name: "Renascer" },
-    { mission_name: "São Paulo Centro", financial_result_pct: -12, event_name: "Seminário de Vida no Espírito" }
-  ]
-};
-
 export const onRequestGet: PagesFunction<any> = async (context) => {
   try {
     const userEmail = await getUserEmailFromRequest(context.env, context.request);
-    if (!userEmail || userEmail.toLowerCase().trim() !== "barbosma1@gmail.com") {
+    if (!userEmail || !(await isAdminEmail(context.env, userEmail))) {
       return jsonResponse({ error: "Acesso negado. Área exclusiva do administrador." }, 403);
     }
-
-    const authHeader = context.request.headers.get("authorization") || "";
 
     // 1. Fetch Portal database configurations (canonical missions, mappings, manual NPS)
     let missions: any[] = [];
@@ -108,17 +67,8 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
         hasDatabase = false;
       }
     } catch (e) {
-      console.warn("Dificuldades ao carregar Portal Database, usando simulador canônico:", e);
+      console.warn("Dificuldades ao carregar Portal Database:", e);
       hasDatabase = false;
-    }
-
-    // Fallback static mission registry if db has no records
-    if (missions.length === 0) {
-      missions = [
-        { id: "m1", canonical_name: "Guarulhos Centro" },
-        { id: "m2", canonical_name: "Fortaleza Centro" },
-        { id: "m3", canonical_name: "São Paulo Centro" }
-      ];
     }
 
     // Build mapping dictionary: "appId:cleanRemoteName" -> canonical_name
@@ -151,7 +101,7 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
 
     // 2. Fetch raw sub-reports from all 7 community apps in parallel
     const activeApps = ["evansh", "wopsh", "gestopro", "pashalom", "adoracaoshalom", "cifrash", "poshalom"];
-    const fetchedReports: Record<string, { data: any[]; isSimulated: boolean }> = {};
+    const fetchedReports: Record<string, { data: any[]; isSimulated: boolean; unavailable?: boolean; reason?: string }> = {};
     const appWarnings: string[] = [];
 
     await Promise.all(
@@ -159,46 +109,56 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
         const config = appConfigs[appId];
         if (!config) return;
 
-        try {
-          // If env has target url and key, attempt real API fetch, else fallback to mock
-          const targetUrl = context.env[config.urlVar];
-          const appKey = context.env[config.keyVar];
-          
-          if (targetUrl && appKey) {
-            const apiEndpoint = `${config.defaultUrl}/api/reports/summary`;
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+        const targetUrl = context.env[config.urlVar];
+        const appKey = context.env[config.keyVar];
 
-            const res = await fetch(apiEndpoint, {
-              headers: {
-                "Authorization": `Bearer ${appKey}`,
-                "Content-Type": "application/json"
-              },
-              signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-
-            if (res.ok) {
-              const result: any = await res.json();
-              if (result && (result.missionData || result.branchData)) {
-                fetchedReports[appId] = {
-                  data: result.missionData || result.branchData,
-                  isSimulated: false
-                };
-                return;
-              }
-            }
-          }
-        } catch (e: any) {
-          console.warn(`Erro ao conectar com API do app ${appId}, usando dados simulados:`, e.message);
+        if (!targetUrl || !appKey) {
+          fetchedReports[appId] = {
+            data: [],
+            isSimulated: false,
+            unavailable: true,
+            reason: `Chaves de acesso (${config.urlVar} / ${config.keyVar}) não configuradas no ambiente.`
+          };
+          appWarnings.push(appId);
+          return;
         }
 
-        // Fallback simulation
-        fetchedReports[appId] = {
-          data: mockSubReports[appId] || [],
-          isSimulated: true
-        };
-        appWarnings.push(appId);
+        try {
+          const apiEndpoint = `${config.defaultUrl}/api/reports/summary`;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+
+          const res = await fetch(apiEndpoint, {
+            headers: {
+              "Authorization": `Bearer ${appKey}`,
+              "Content-Type": "application/json"
+            },
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (res.ok) {
+            const result: any = await res.json();
+            if (result && (result.missionData || result.branchData)) {
+              fetchedReports[appId] = {
+                data: result.missionData || result.branchData,
+                isSimulated: false
+              };
+              return;
+            }
+          }
+          
+          throw new Error(`Código HTTP de erro: ${res.status}`);
+        } catch (e: any) {
+          console.warn(`Erro ao conectar com API do app ${appId}:`, e.message);
+          fetchedReports[appId] = {
+            data: [],
+            isSimulated: false,
+            unavailable: true,
+            reason: `Erro na conexão com o sub-aplicativo: ${e.message || "Timeout de conexão"}`
+          };
+          appWarnings.push(appId);
+        }
       })
     );
 
@@ -214,14 +174,14 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
       cifrash?: { totalRepertoires: number; totalCords: number; isSimulated: boolean };
       poshalom?: { financialResultPct: number; eventName: string; isSimulated: boolean };
       iiee?: {
-        value: number;
+        value: number | null;
         classification: string;
-        financialScore: number;
-        engagementScore: number;
-        npsScore: number;
-        npsValue: number;
+        financialScore: number | null;
+        engagementScore: number | null;
+        npsScore: number | null;
+        npsValue: number | null;
         npsLabel: string;
-        eventName: string;
+        eventName: string | null;
       };
     }> = {};
 
@@ -237,87 +197,101 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
     };
 
     // A. Evansh
-    fetchedReports.evansh.data.forEach(item => {
-      const { canonicalName, isMapped } = resolveMission("evansh", item.mission_name);
-      const group = getGroup(canonicalName, isMapped);
-      group.evansh = {
-        contactsCount: item.contacts_count,
-        engagementRate: item.engagement_rate,
-        isSimulated: fetchedReports.evansh.isSimulated
-      };
-    });
+    if (fetchedReports.evansh && !fetchedReports.evansh.unavailable) {
+      fetchedReports.evansh.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("evansh", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.evansh = {
+          contactsCount: item.contacts_count,
+          engagementRate: item.engagement_rate,
+          isSimulated: false
+        };
+      });
+    }
 
     // B. Wopsh
-    fetchedReports.wopsh.data.forEach(item => {
-      const { canonicalName, isMapped } = resolveMission("wopsh", item.mission_name);
-      const group = getGroup(canonicalName, isMapped);
-      group.wopsh = {
-        obra: item.members_obra,
-        cal: item.members_cal,
-        cv: item.members_cv,
-        isSimulated: fetchedReports.wopsh.isSimulated
-      };
-    });
+    if (fetchedReports.wopsh && !fetchedReports.wopsh.unavailable) {
+      fetchedReports.wopsh.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("wopsh", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.wopsh = {
+          obra: item.members_obra,
+          cal: item.members_cal,
+          cv: item.members_cv,
+          isSimulated: false
+        };
+      });
+    }
 
     // C. Gestão Pro
-    fetchedReports.gestopro.data.forEach(item => {
-      const { canonicalName, isMapped } = resolveMission("gestopro", item.branch_name);
-      const group = getGroup(canonicalName, isMapped);
-      group.gestopro = {
-        salesCount: item.sales_count,
-        revenue: item.revenue,
-        costs: item.costs,
-        isSimulated: fetchedReports.gestopro.isSimulated
-      };
-    });
+    if (fetchedReports.gestopro && !fetchedReports.gestopro.unavailable) {
+      fetchedReports.gestopro.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("gestopro", item.branch_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.gestopro = {
+          salesCount: item.sales_count,
+          revenue: item.revenue,
+          costs: item.costs,
+          isSimulated: false
+        };
+      });
+    }
 
     // D. PA Shalom
-    fetchedReports.pashalom.data.forEach(item => {
-      const { canonicalName, isMapped } = resolveMission("pashalom", item.mission_name);
-      const group = getGroup(canonicalName, isMapped);
-      group.pashalom = {
-        actionsPlanned: item.actions_planned,
-        actionsDone: item.actions_done,
-        budgetPlanned: item.budget_planned,
-        budgetActual: item.budget_actual,
-        isSimulated: fetchedReports.pashalom.isSimulated
-      };
-    });
+    if (fetchedReports.pashalom && !fetchedReports.pashalom.unavailable) {
+      fetchedReports.pashalom.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("pashalom", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.pashalom = {
+          actionsPlanned: item.actions_planned,
+          actionsDone: item.actions_done,
+          budgetPlanned: item.budget_planned,
+          budgetActual: item.budget_actual,
+          isSimulated: false
+        };
+      });
+    }
 
     // E. Adoração Shalom
-    fetchedReports.adoracaoshalom.data.forEach(item => {
-      const { canonicalName, isMapped } = resolveMission("adoracaoshalom", item.mission_name);
-      const group = getGroup(canonicalName, isMapped);
-      group.adoracaoshalom = {
-        high: item.participants_high,
-        medium: item.participants_medium,
-        low: item.participants_low,
-        occupancy: item.scale_occupancy_pct,
-        isSimulated: fetchedReports.adoracaoshalom.isSimulated
-      };
-    });
+    if (fetchedReports.adoracaoshalom && !fetchedReports.adoracaoshalom.unavailable) {
+      fetchedReports.adoracaoshalom.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("adoracaoshalom", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.adoracaoshalom = {
+          high: item.participants_high,
+          medium: item.participants_medium,
+          low: item.participants_low,
+          occupancy: item.scale_occupancy_pct,
+          isSimulated: false
+        };
+      });
+    }
 
     // F. Cifras Shalom
-    fetchedReports.cifrash.data.forEach(item => {
-      const { canonicalName, isMapped } = resolveMission("cifrash", item.mission_name);
-      const group = getGroup(canonicalName, isMapped);
-      group.cifrash = {
-        totalRepertoires: item.total_repertoires,
-        totalCords: item.total_cords,
-        isSimulated: fetchedReports.cifrash.isSimulated
-      };
-    });
+    if (fetchedReports.cifrash && !fetchedReports.cifrash.unavailable) {
+      fetchedReports.cifrash.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("cifrash", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.cifrash = {
+          totalRepertoires: item.total_repertoires,
+          totalCords: item.total_cords,
+          isSimulated: false
+        };
+      });
+    }
 
     // G. PO Shalom
-    fetchedReports.poshalom.data.forEach(item => {
-      const { canonicalName, isMapped } = resolveMission("poshalom", item.mission_name);
-      const group = getGroup(canonicalName, isMapped);
-      group.poshalom = {
-        financialResultPct: item.financial_result_pct,
-        eventName: item.event_name,
-        isSimulated: fetchedReports.poshalom.isSimulated
-      };
-    });
+    if (fetchedReports.poshalom && !fetchedReports.poshalom.unavailable) {
+      fetchedReports.poshalom.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("poshalom", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.poshalom = {
+          financialResultPct: item.financial_result_pct,
+          eventName: item.event_name,
+          isSimulated: false
+        };
+      });
+    }
 
     // 4. Calculate IIEE (Strategic Event Impact Index) for each mission registry entry
     missions.forEach(mission => {
@@ -331,35 +305,59 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
       // Find local NPS event for this mission
       const npsRecord = eventNps.find(n => n.mission_registry_id === mission.id);
       
-      // Default NPS metrics if none found in db
-      let pPct = 65;
-      let dPct = 15;
-      let customEventName = "Evento Geral";
+      let pPct = 0;
+      let dPct = 0;
+      let customEventName: string | null = null;
+      let npsValue: number | null = null;
+      let npsScore: number | null = null;
+      let npsLabel = "Sem dados";
 
       if (npsRecord) {
         pPct = npsRecord.promoters_pct;
         dPct = npsRecord.detractors_pct;
         customEventName = npsRecord.event_name;
-      } else {
-        // Fallback simulated NPS parameters based on mission name
-        if (name === "Guarulhos Centro") { pPct = 78; dPct = 8; customEventName = "Acampamento de Jovens"; }
-        if (name === "Fortaleza Centro") { pPct = 84; dPct = 4; customEventName = "Renascer"; }
-        if (name === "São Paulo Centro") { pPct = 52; dPct = 28; customEventName = "Seminário de Vida no Espírito"; }
+        npsValue = pPct - dPct;
+        const rating = getNpsScoreAndClass(npsValue);
+        npsScore = rating.score;
+        npsLabel = rating.label;
       }
 
-      const npsValue = pPct - dPct;
-      const { score: npsScore, label: npsLabel } = getNpsScoreAndClass(npsValue);
-
       // Calculations
-      const financialResultPct = hasFinance ? group.poshalom!.financialResultPct : 0;
-      const financialScore = getFinancialScore(financialResultPct);
+      const financialResultPct = hasFinance ? group.poshalom!.financialResultPct : null;
+      const financialScore = financialResultPct !== null ? getFinancialScore(financialResultPct) : null;
 
-      const engagementRate = hasEngagement ? group.evansh!.engagementRate : 0;
-      const engagementScore = getEngagementScore(engagementRate);
+      const engagementRate = hasEngagement ? group.evansh!.engagementRate : null;
+      const engagementScore = engagementRate !== null ? getEngagementScore(engagementRate) : null;
 
-      // IIEE Formula
-      const iieeValue = Math.round((financialScore * 0.35) + (engagementScore * 0.45) + (npsScore * 0.20));
-      const classification = getIieeClassification(iieeValue);
+      // IIEE Formula weights:
+      // Finance: 0.35, Engagement: 0.45, NPS: 0.20
+      // Recalculated if NPS is missing: Finance: 45%, Engagement: 55%
+      let iieeValue: number | null = null;
+      let classification = "Sem dados";
+
+      let totalWeight = 0;
+      let weightedSum = 0;
+
+      if (financialScore !== null) {
+        const w = npsScore !== null ? 0.35 : 0.45;
+        totalWeight += w;
+        weightedSum += financialScore * w;
+      }
+      if (engagementScore !== null) {
+        const w = npsScore !== null ? 0.45 : 0.55;
+        totalWeight += w;
+        weightedSum += engagementScore * w;
+      }
+      if (npsScore !== null) {
+        const w = 0.20;
+        totalWeight += w;
+        weightedSum += npsScore * w;
+      }
+
+      if (totalWeight > 0) {
+        iieeValue = Math.round(weightedSum / totalWeight);
+        classification = getIieeClassification(iieeValue);
+      }
 
       group.iiee = {
         value: iieeValue,
@@ -376,10 +374,20 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
     // Assemble final output list
     const reportsList = Object.values(groupedReports);
 
+    // Formulate appAvailability status payload
+    const appAvailability: Record<string, { unavailable: boolean; reason?: string }> = {};
+    activeApps.forEach(appId => {
+      appAvailability[appId] = {
+        unavailable: fetchedReports[appId]?.unavailable || false,
+        reason: fetchedReports[appId]?.reason
+      };
+    });
+
     return jsonResponse({
       reports: reportsList,
       warnings: appWarnings,
-      hasDatabase
+      hasDatabase,
+      appAvailability
     });
   } catch (err: any) {
     return jsonResponse({ error: "Erro ao consolidar relatórios das missões: " + err.message }, 500);

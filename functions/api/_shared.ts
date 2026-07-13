@@ -132,6 +132,34 @@ export async function isUserAuthorizedForApp(env: any, email: string, appId: str
   }
 }
 
+// Helper to verify if an email is an administrator of the Portal
+export async function isAdminEmail(env: any, email: string): Promise<boolean> {
+  if (!email) return false;
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  if (normalizedEmail === "visitante.shalom@comunidadeshalom.org.br") {
+    return false;
+  }
+  
+  try {
+    const portalClient = getPortalClient(env);
+    const { data, error } = await portalClient
+      .from("portal_admins")
+      .select("id")
+      .eq("email", normalizedEmail);
+      
+    if (error) {
+      console.warn(`[Supabase Fallback] Erro ao ler tabela portal_admins:`, error.message);
+      return normalizedEmail === "barbosma1@gmail.com";
+    }
+    
+    return data && data.length > 0;
+  } catch (err) {
+    console.error("Erro ao verificar admin:", err);
+    return normalizedEmail === "barbosma1@gmail.com";
+  }
+}
+
 // JSON Helper Response for Pages Functions
 export function jsonResponse(data: any, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(data), {

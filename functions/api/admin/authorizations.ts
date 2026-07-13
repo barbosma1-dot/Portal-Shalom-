@@ -1,4 +1,4 @@
-import { getPortalClient, getUserEmailFromRequest, jsonResponse, handleOptions } from "../_shared";
+import { getPortalClient, getUserEmailFromRequest, jsonResponse, handleOptions, isAdminEmail } from "../_shared";
 
 export const onRequestOptions = handleOptions;
 
@@ -6,8 +6,8 @@ export const onRequestOptions = handleOptions;
 export const onRequestGet: PagesFunction<any> = async (context) => {
   try {
     const userEmail = await getUserEmailFromRequest(context.env, context.request);
-    if (!userEmail || userEmail.toLowerCase().trim() !== "barbosma1@gmail.com") {
-      return jsonResponse({ error: "Acesso negado. Apenas o administrador barbosma1@gmail.com pode gerenciar autorizações." }, 403);
+    if (!userEmail || !(await isAdminEmail(context.env, userEmail))) {
+      return jsonResponse({ error: "Acesso negado. Apenas administradores do Portal podem gerenciar autorizações." }, 403);
     }
 
     const portalClient = getPortalClient(context.env);
@@ -37,8 +37,8 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
 export const onRequestPost: PagesFunction<any> = async (context) => {
   try {
     const userEmail = await getUserEmailFromRequest(context.env, context.request);
-    if (!userEmail || userEmail.toLowerCase().trim() !== "barbosma1@gmail.com") {
-      return jsonResponse({ error: "Acesso negado. Apenas o administrador barbosma1@gmail.com pode gerenciar autorizações." }, 403);
+    if (!userEmail || !(await isAdminEmail(context.env, userEmail))) {
+      return jsonResponse({ error: "Acesso negado. Apenas administradores do Portal podem gerenciar autorizações." }, 403);
     }
 
     let body: any;
@@ -75,8 +75,8 @@ export const onRequestPost: PagesFunction<any> = async (context) => {
 export const onRequestDelete: PagesFunction<any> = async (context) => {
   try {
     const userEmail = await getUserEmailFromRequest(context.env, context.request);
-    if (!userEmail || userEmail.toLowerCase().trim() !== "barbosma1@gmail.com") {
-      return jsonResponse({ error: "Acesso negado. Apenas o administrador barbosma1@gmail.com pode gerenciar autorizações." }, 403);
+    if (!userEmail || !(await isAdminEmail(context.env, userEmail))) {
+      return jsonResponse({ error: "Acesso negado. Apenas administradores do Portal podem gerenciar autorizações." }, 403);
     }
 
     const url = new URL(context.request.url);

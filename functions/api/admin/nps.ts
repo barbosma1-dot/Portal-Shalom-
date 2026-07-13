@@ -1,11 +1,11 @@
-import { getPortalClient, getUserEmailFromRequest, jsonResponse, handleOptions } from "../_shared";
+import { getPortalClient, getUserEmailFromRequest, jsonResponse, handleOptions, isAdminEmail } from "../_shared";
 
 export const onRequestOptions = handleOptions;
 
 export const onRequestGet: PagesFunction<any> = async (context) => {
   try {
     const userEmail = await getUserEmailFromRequest(context.env, context.request);
-    if (!userEmail || userEmail.toLowerCase().trim() !== "barbosma1@gmail.com") {
+    if (!userEmail || !(await isAdminEmail(context.env, userEmail))) {
       return jsonResponse({ error: "Acesso negado. Área exclusiva do administrador." }, 403);
     }
 
@@ -40,7 +40,7 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
 export const onRequestPost: PagesFunction<any> = async (context) => {
   try {
     const userEmail = await getUserEmailFromRequest(context.env, context.request);
-    if (!userEmail || userEmail.toLowerCase().trim() !== "barbosma1@gmail.com") {
+    if (!userEmail || !(await isAdminEmail(context.env, userEmail))) {
       return jsonResponse({ error: "Acesso negado. Área exclusiva do administrador." }, 403);
     }
 
@@ -99,7 +99,7 @@ export const onRequestPost: PagesFunction<any> = async (context) => {
 export const onRequestDelete: PagesFunction<any> = async (context) => {
   try {
     const userEmail = await getUserEmailFromRequest(context.env, context.request);
-    if (!userEmail || userEmail.toLowerCase().trim() !== "barbosma1@gmail.com") {
+    if (!userEmail || !(await isAdminEmail(context.env, userEmail))) {
       return jsonResponse({ error: "Acesso negado. Área exclusiva do administrador." }, 403);
     }
 

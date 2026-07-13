@@ -1,13 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
-import { appConfigs, getUserEmailFromRequest, jsonResponse, handleOptions } from "../_shared";
+import { appConfigs, getUserEmailFromRequest, jsonResponse, handleOptions, isAdminEmail } from "../_shared";
 
 export const onRequestOptions = handleOptions;
 
 export const onRequestGet: PagesFunction<any> = async (context) => {
   try {
     const userEmail = await getUserEmailFromRequest(context.env, context.request);
-    if (!userEmail || userEmail.toLowerCase().trim() !== "barbosma1@gmail.com") {
-      return jsonResponse({ error: "Acesso negado. Apenas o administrador barbosma1@gmail.com pode acessar o diretório de usuários." }, 403);
+    if (!userEmail || !(await isAdminEmail(context.env, userEmail))) {
+      return jsonResponse({ error: "Acesso negado. Apenas administradores do Portal podem acessar o diretório de usuários." }, 403);
     }
 
     const consolidatedUsers: Record<string, {
