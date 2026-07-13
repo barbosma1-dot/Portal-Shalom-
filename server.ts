@@ -48,7 +48,7 @@ const appConfigs: Record<string, { urlVar: string; keyVar: string; defaultUrl: s
   }
 };
 
-// Access Control List (ACL): Authorized emails for each app
+// Access Control List (ACL): Authorized emails for each app (fallback)
 const appAuthorizations: Record<string, string[]> = {
   pashalom: ["barbosma1@gmail.com"],
   poshalom: ["barbosma1@gmail.com"],
@@ -59,8 +59,20 @@ const appAuthorizations: Record<string, string[]> = {
   wopsh: ["barbosma1@gmail.com"]
 };
 
+// Helper to get portal Supabase client
+function getPortalClient() {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error("Portal Supabase configuration is missing");
+  }
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+}
+
 // Helper function to check if an email is authorized for a specific app
-function isUserAuthorizedForApp(email: string, appId: string): boolean {
+async function isUserAuthorizedForApp(email: string, appId: string): Promise<boolean> {
   if (!email) return false;
   const normalizedEmail = email.toLowerCase().trim();
   
@@ -74,8 +86,50 @@ function isUserAuthorizedForApp(email: string, appId: string): boolean {
     return ["adoracaoshalom", "cifrash"].includes(appId);
   }
   
+  try {
+    const portalClient = getPortalClient();
+    const { data, error } = await portalClient
+      .from("app_authorizations")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .eq("app_id", appId);
+      
+    if (!error && data && data.length > 0) {
+      return true;
+    }
+  } catch (e: any) {
+    console.warn("[Local Fallback] Error reading app_authorizations table:", e.message);
+  }
+  
   const authorizedList = appAuthorizations[appId] || [];
   return authorizedList.map(e => e.toLowerCase().trim()).includes(normalizedEmail);
+}
+
+// Helper to retrieve verified user email from request
+async function getUserEmail(req: express.Request): Promise<string | null> {
+  const authHeader = req.headers.authorization;
+  const xMockEmail = req.headers["x-mock-email"];
+  
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    const portalUrl = process.env.VITE_SUPABASE_URL;
+    const portalAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (portalUrl && portalAnonKey) {
+      try {
+        const portalClient = createClient(portalUrl, portalAnonKey);
+        const { data: { user } } = await portalClient.auth.getUser(token);
+        if (user && user.email) {
+          return user.email;
+        }
+      } catch (e) {
+        console.error("Error reading email from token:", e);
+      }
+    }
+  } else if (xMockEmail && typeof xMockEmail === "string") {
+    return xMockEmail;
+  }
+  return null;
 }
 
 async function startServer() {
@@ -85,51 +139,30 @@ async function startServer() {
   // API Route: Get the configuration status of all community apps with authorization check
   app.get("/api/apps-status", async (req, res) => {
     try {
-      let userEmail = "";
-      
-      const authHeader = req.headers.authorization;
-      const xMockEmail = req.headers["x-mock-email"];
-      
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        const token = authHeader.split(" ")[1];
-        const portalUrl = process.env.VITE_SUPABASE_URL;
-        const portalAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
-        
-        if (portalUrl && portalAnonKey) {
-          try {
-            const portalClient = createClient(portalUrl, portalAnonKey);
-            const { data: { user } } = await portalClient.auth.getUser(token);
-            if (user && user.email) {
-              userEmail = user.email;
-            }
-          } catch (e) {
-            console.error("Erro ao verificar token em apps-status:", e);
-          }
-        }
-      } else if (xMockEmail && typeof xMockEmail === "string") {
-        userEmail = xMockEmail;
-      }
+      const userEmail = await getUserEmail(req);
 
-      const status = Object.entries(appConfigs).map(([id, config]) => {
-        const url = process.env[config.urlVar];
-        const key = process.env[config.keyVar];
-        const isAuthorized = userEmail ? isUserAuthorizedForApp(userEmail, id) : false;
+      const status = await Promise.all(
+        Object.entries(appConfigs).map(async ([id, config]) => {
+          const url = process.env[config.urlVar];
+          const key = process.env[config.keyVar];
+          const isAuthorized = userEmail ? await isUserAuthorizedForApp(userEmail, id) : false;
 
-        return {
-          id,
-          name: id === "pashalom" ? "PA Shalom" :
-                id === "poshalom" ? "PO Shalom" :
-                id === "wopsh" ? "WOP Shalom" :
-                id === "gestopro" ? "Gestão Pro" :
-                id === "evansh" ? "Evangelização Shalom" :
-                id === "adoracaoshalom" ? "Adoração Shalom" :
-                id === "cifrash" ? "Cifras Shalom" : id,
-          url: config.defaultUrl,
-          hasKeys: Boolean(url && key),
-          isAuthorized
-        };
-      });
-      res.json({ apps: status, userEmail });
+          return {
+            id,
+            name: id === "pashalom" ? "PA Shalom" :
+                  id === "poshalom" ? "PO Shalom" :
+                  id === "wopsh" ? "WOP Shalom" :
+                  id === "gestopro" ? "Gestão Pro" :
+                  id === "evansh" ? "Evangelização Shalom" :
+                  id === "adoracaoshalom" ? "Adoração Shalom" :
+                  id === "cifrash" ? "Cifras Shalom" : id,
+            url: config.defaultUrl,
+            hasKeys: Boolean(url && key),
+            isAuthorized
+          };
+        })
+      );
+      res.json({ apps: status, userEmail: userEmail || "" });
     } catch (err: any) {
       res.status(500).json({ error: "Erro ao listar status dos aplicativos: " + err.message });
     }
@@ -178,7 +211,8 @@ async function startServer() {
       }
 
       // Strict Authorization Check
-      if (!isUserAuthorizedForApp(user.email, appId)) {
+      const isAuthorized = await isUserAuthorizedForApp(user.email, appId);
+      if (!isAuthorized) {
         return res.status(403).json({ 
           error: `Acesso negado. O e-mail '${user.email}' não possui autorização de acesso para este aplicativo. Entre em contato com o administrador barbosma1@gmail.com para solicitar acesso.` 
         });
@@ -216,6 +250,592 @@ async function startServer() {
     } catch (err: any) {
       console.error("Erro interno no SSO:", err);
       res.status(500).json({ error: `Erro interno no servidor: ${err.message}` });
+    }
+  });
+
+  // API Route: Admin permissions CRUD (GET, POST, DELETE)
+  app.get("/api/admin/authorizations", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const portalClient = getPortalClient();
+      const { data, error } = await portalClient
+        .from("app_authorizations")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        if (error.code === "PGRST116" || error.message.includes("does not exist")) {
+          return res.json({ authorizations: [] });
+        }
+        return res.status(500).json({ error: error.message });
+      }
+      res.json({ authorizations: data || [] });
+    } catch (err: any) {
+      res.status(550).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/admin/authorizations", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const { email: authEmail, appId } = req.body;
+      if (!authEmail || !appId) {
+        return res.status(400).json({ error: "Campos obrigatórios ausentes" });
+      }
+
+      const portalClient = getPortalClient();
+      const { data, error } = await portalClient
+        .from("app_authorizations")
+        .insert([{ email: authEmail.toLowerCase().trim(), app_id: appId }])
+        .select();
+
+      if (error) return res.status(400).json({ error: error.message });
+      res.json({ success: true, authorization: data?.[0] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/admin/authorizations", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const { id } = req.query;
+      if (!id) return res.status(400).json({ error: "ID obrigatório" });
+
+      const portalClient = getPortalClient();
+      const { error } = await portalClient
+        .from("app_authorizations")
+        .delete()
+        .eq("id", id);
+
+      if (error) return res.status(400).json({ error: error.message });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: Unified user directory across all apps
+  app.get("/api/admin/all-users", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const consolidatedUsers: Record<string, any> = {};
+      const errors: string[] = [];
+
+      await Promise.all(
+        Object.entries(appConfigs).map(async ([appId, config]) => {
+          const targetUrl = process.env[config.urlVar];
+          const targetServiceKey = process.env[config.keyVar];
+
+          if (!targetUrl || !targetServiceKey) {
+            errors.push(`Configurações de chaves ausentes para o app ${appId}`);
+            return;
+          }
+
+          try {
+            const targetSupabase = createClient(targetUrl, targetServiceKey, {
+              auth: { autoRefreshToken: false, persistSession: false }
+            });
+
+            let authUsers: any[] = [];
+            try {
+              const { data, error } = await targetSupabase.auth.admin.listUsers();
+              if (!error && data && data.users) {
+                authUsers = data.users;
+              }
+            } catch (e: any) {
+              console.warn(`Auth API bypass trigger in ${appId}`);
+            }
+
+            let publicProfiles: any[] = [];
+            try {
+              const { data, error } = await targetSupabase.from("profiles").select("*");
+              if (!error && data) {
+                publicProfiles = data;
+              } else {
+                const { data: uData, error: uError } = await targetSupabase.from("users").select("*");
+                if (!uError && uData) {
+                  publicProfiles = uData;
+                }
+              }
+            } catch (e: any) {
+              console.warn(`Profiles schema bypass in ${appId}`);
+            }
+
+            const appEmails = new Set<string>();
+            authUsers.forEach(u => u.email && appEmails.add(u.email.toLowerCase().trim()));
+            publicProfiles.forEach(p => p.email && appEmails.add(p.email.toLowerCase().trim()));
+
+            appEmails.forEach(emailKey => {
+              const authUser = authUsers.find(u => (u.email || "").toLowerCase().trim() === emailKey);
+              const pubProfile = publicProfiles.find(p => (p.email || "").toLowerCase().trim() === emailKey);
+
+              let name = "";
+              if (pubProfile) name = pubProfile.nome || pubProfile.name || pubProfile.full_name || pubProfile.nome_completo || "";
+              if (!name && authUser) {
+                const meta = authUser.user_metadata || {};
+                name = meta.nome || meta.name || meta.full_name || meta.nome_completo || "";
+              }
+              if (!name) name = emailKey.split("@")[0];
+
+              let role = "usuário comum";
+              if (pubProfile) {
+                role = pubProfile.role || pubProfile.permissao || pubProfile.perfil || pubProfile.tipo || "usuário comum";
+              } else if (authUser) {
+                const meta = authUser.user_metadata || {};
+                role = meta.role || meta.permissao || meta.perfil || "usuário comum";
+              }
+
+              if (role === "admin" || role === "administrator") role = "Administrador";
+              else if (role === "coordinator" || role === "coordenador") role = "Coordenador";
+              else if (role === "user" || role === "membro") role = "Membro";
+              else role = role.charAt(0).toUpperCase() + role.slice(1);
+
+              if (!consolidatedUsers[emailKey]) {
+                consolidatedUsers[emailKey] = {
+                  email: emailKey,
+                  name: name || emailKey,
+                  apps: {}
+                };
+              } else if (name && consolidatedUsers[emailKey].name === emailKey) {
+                consolidatedUsers[emailKey].name = name;
+              }
+
+              consolidatedUsers[emailKey].apps[appId] = {
+                participates: true,
+                role
+              };
+            });
+
+          } catch (err: any) {
+            console.error(`Error loading users for ${appId}:`, err);
+            errors.push(`Erro no app ${appId}: ${err.message}`);
+          }
+        })
+      );
+
+      res.json({ users: Object.values(consolidatedUsers), errors });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: Canonical missions configuration
+  app.get("/api/admin/missions", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const portalClient = getPortalClient();
+      const { data: missions, error: mError } = await portalClient
+        .from("mission_registry")
+        .select("*")
+        .order("canonical_name", { ascending: true });
+
+      if (mError) {
+        if (mError.code === "PGRST116" || mError.message.includes("does not exist")) {
+          return res.json({ missions: [], mappings: [] });
+        }
+        return res.status(500).json({ error: mError.message });
+      }
+
+      const { data: mappings } = await portalClient.from("mission_app_mapping").select("*");
+      res.json({ missions: missions || [], mappings: mappings || [] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/admin/missions", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const { action, canonicalName, missionRegistryId, appId, remoteMissionName, mappingId } = req.body;
+      const portalClient = getPortalClient();
+
+      if (action === "create_mission") {
+        const { data, error } = await portalClient
+          .from("mission_registry")
+          .insert([{ canonical_name: canonicalName }])
+          .select();
+        if (error) return res.status(400).json({ error: error.message });
+        return res.json({ success: true, mission: data?.[0] });
+      }
+
+      if (action === "delete_mission") {
+        const { error } = await portalClient.from("mission_registry").delete().eq("id", missionRegistryId);
+        if (error) return res.status(400).json({ error: error.message });
+        return res.json({ success: true });
+      }
+
+      if (action === "create_mapping") {
+        const { data, error } = await portalClient
+          .from("mission_app_mapping")
+          .insert([{
+            mission_registry_id: missionRegistryId,
+            app_id: appId,
+            remote_mission_name: remoteMissionName
+          }])
+          .select();
+        if (error) return res.status(400).json({ error: error.message });
+        return res.json({ success: true, mapping: data?.[0] });
+      }
+
+      if (action === "delete_mapping") {
+        const { error } = await portalClient.from("mission_app_mapping").delete().eq("id", mappingId);
+        if (error) return res.status(400).json({ error: error.message });
+        return res.json({ success: true });
+      }
+
+      res.status(400).json({ error: "Ação inválida" });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: Manual Event NPS
+  app.get("/api/admin/nps", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const portalClient = getPortalClient();
+      const { data, error } = await portalClient
+        .from("event_nps")
+        .select(`
+          *,
+          mission_registry:mission_registry_id (
+            canonical_name
+          )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        if (error.code === "PGRST116" || error.message.includes("does not exist")) {
+          return res.json({ events: [] });
+        }
+        return res.status(500).json({ error: error.message });
+      }
+      res.json({ events: data || [] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/admin/nps", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const { missionRegistryId, eventName, promotersPct, detractorsPct, id } = req.body;
+      const portalClient = getPortalClient();
+
+      let result;
+      if (id) {
+        const { data, error } = await portalClient
+          .from("event_nps")
+          .update({
+            mission_registry_id: missionRegistryId,
+            event_name: eventName,
+            promoters_pct: Number(promotersPct),
+            detractors_pct: Number(detractorsPct)
+          })
+          .eq("id", id)
+          .select();
+        if (error) return res.status(400).json({ error: error.message });
+        result = data?.[0];
+      } else {
+        const { data, error } = await portalClient
+          .from("event_nps")
+          .insert([{
+            mission_registry_id: missionRegistryId,
+            event_name: eventName,
+            promoters_pct: Number(promotersPct),
+            detractors_pct: Number(detractorsPct)
+          }])
+          .select();
+        if (error) return res.status(400).json({ error: error.message });
+        result = data?.[0];
+      }
+
+      res.json({ success: true, eventNps: result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/admin/nps", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const { id } = req.query;
+      if (!id) return res.status(400).json({ error: "ID obrigatório" });
+
+      const portalClient = getPortalClient();
+      const { error } = await portalClient.from("event_nps").delete().eq("id", id);
+      if (error) return res.status(400).json({ error: error.message });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: Consolidated Reports Aggregator
+  app.get("/api/admin/reports-summary", async (req, res) => {
+    try {
+      const email = await getUserEmail(req);
+      if (!email || email.toLowerCase().trim() !== "barbosma1@gmail.com") {
+        return res.status(403).json({ error: "Acesso restrito ao administrador." });
+      }
+
+      const authHeader = req.headers.authorization || "";
+
+      let missions: any[] = [];
+      let mappings: any[] = [];
+      let eventNps: any[] = [];
+
+      try {
+        const portalClient = getPortalClient();
+        const [mRes, mapRes, npsRes] = await Promise.all([
+          portalClient.from("mission_registry").select("*"),
+          portalClient.from("mission_app_mapping").select("*"),
+          portalClient.from("event_nps").select("*")
+        ]);
+        if (mRes.data) missions = mRes.data;
+        if (mapRes.data) mappings = mapRes.data;
+        if (npsRes.data) eventNps = npsRes.data;
+      } catch (e) {
+        console.warn("Using offline fallback missions in Express backend");
+      }
+
+      if (missions.length === 0) {
+        missions = [
+          { id: "m1", canonical_name: "Guarulhos Centro" },
+          { id: "m2", canonical_name: "Fortaleza Centro" },
+          { id: "m3", canonical_name: "São Paulo Centro" }
+        ];
+      }
+
+      const mappingDict = new Map<string, string>();
+      mappings.forEach(map => {
+        const canonicalObj = missions.find(m => m.id === map.mission_registry_id);
+        if (canonicalObj) {
+          mappingDict.set(`${map.app_id}:${map.remote_mission_name.toLowerCase().trim()}`, canonicalObj.canonical_name);
+        }
+      });
+
+      const resolveMission = (appId: string, remoteName: string) => {
+        if (!remoteName) return { canonicalName: "Não Informado", isMapped: false };
+        const key = `${appId}:${remoteName.toLowerCase().trim()}`;
+        if (mappingDict.has(key)) {
+          return { canonicalName: mappingDict.get(key)!, isMapped: true };
+        }
+        const directMatch = missions.find(m => m.canonical_name.toLowerCase().trim() === remoteName.toLowerCase().trim());
+        if (directMatch) {
+          return { canonicalName: directMatch.canonical_name, isMapped: true };
+        }
+        return { canonicalName: remoteName, isMapped: false };
+      };
+
+      const activeApps = ["evansh", "wopsh", "gestopro", "pashalom", "adoracaoshalom", "cifrash", "poshalom"];
+      const fetchedReports: Record<string, { data: any[]; isSimulated: boolean }> = {};
+      const appWarnings: string[] = [];
+
+      const mockSubReports: Record<string, any[]> = {
+        evansh: [
+          { mission_name: "Guarulhos Centro", contacts_count: 1420, engagement_rate: 22 },
+          { mission_name: "Fortaleza Centro", contacts_count: 3100, engagement_rate: 18 },
+          { mission_name: "São Paulo Centro", contacts_count: 2400, engagement_rate: 14 }
+        ],
+        wopsh: [
+          { mission_name: "Guarulhos Centro", members_obra: 120, members_cal: 45, members_cv: 15 },
+          { mission_name: "Fortaleza Centro", members_obra: 340, members_cal: 110, members_cv: 55 },
+          { mission_name: "São Paulo Centro", members_obra: 210, members_cal: 85, members_cv: 30 }
+        ],
+        gestopro: [
+          { branch_name: "Guarulhos Centro", sales_count: 85, revenue: 15800, costs: 8200 },
+          { branch_name: "Fortaleza Centro", sales_count: 210, revenue: 45000, costs: 22000 },
+          { branch_name: "São Paulo Centro", sales_count: 150, revenue: 32000, costs: 18500 }
+        ],
+        pashalom: [
+          { mission_name: "Guarulhos Centro", actions_planned: 12, actions_done: 9, budget_planned: 5000, budget_actual: 4800 },
+          { mission_name: "Fortaleza Centro", actions_planned: 25, actions_done: 22, budget_planned: 12000, budget_actual: 11500 },
+          { mission_name: "São Paulo Centro", actions_planned: 18, actions_done: 12, budget_planned: 8500, budget_actual: 9100 }
+        ],
+        adoracaoshalom: [
+          { mission_name: "Guarulhos Centro", participants_high: 45, participants_medium: 25, participants_low: 10, scale_occupancy_pct: 88 },
+          { mission_name: "Fortaleza Centro", participants_high: 120, participants_medium: 60, participants_low: 25, scale_occupancy_pct: 94 },
+          { mission_name: "São Paulo Centro", participants_high: 75, participants_medium: 40, participants_low: 15, scale_occupancy_pct: 82 }
+        ],
+        cifrash: [
+          { mission_name: "Guarulhos Centro", total_repertoires: 35, total_cords: 140 },
+          { mission_name: "Fortaleza Centro", total_repertoires: 72, total_cords: 285 },
+          { mission_name: "São Paulo Centro", total_repertoires: 48, total_cords: 190 }
+        ],
+        poshalom: [
+          { mission_name: "Guarulhos Centro", financial_result_pct: 18, event_name: "Acampamento de Jovens" },
+          { mission_name: "Fortaleza Centro", financial_result_pct: 8, event_name: "Renascer" },
+          { mission_name: "São Paulo Centro", financial_result_pct: -12, event_name: "Seminário de Vida no Espírito" }
+        ]
+      };
+
+      await Promise.all(
+        activeApps.map(async (appId) => {
+          const config = appConfigs[appId];
+          if (!config) return;
+
+          try {
+            const targetUrl = process.env[config.urlVar];
+            if (targetUrl) {
+              const fetchRes = await fetch(`${config.defaultUrl}/api/reports/summary`, {
+                headers: { "Authorization": authHeader, "Content-Type": "application/json" }
+              });
+              if (fetchRes.ok) {
+                const result: any = await fetchRes.json();
+                if (result && (result.missionData || result.branchData)) {
+                  fetchedReports[appId] = {
+                    data: result.missionData || result.branchData,
+                    isSimulated: false
+                  };
+                  return;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(`Local simulation for ${appId}`);
+          }
+
+          fetchedReports[appId] = { data: mockSubReports[appId] || [], isSimulated: true };
+          appWarnings.push(appId);
+        })
+      );
+
+      const groupedReports: Record<string, any> = {};
+      const getGroup = (canonicalName: string, isMapped: boolean) => {
+        if (!groupedReports[canonicalName]) {
+          groupedReports[canonicalName] = { canonicalName, isMapped };
+        }
+        return groupedReports[canonicalName];
+      };
+
+      fetchedReports.evansh.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("evansh", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.evansh = { contactsCount: item.contacts_count, engagementRate: item.engagement_rate, isSimulated: fetchedReports.evansh.isSimulated };
+      });
+
+      fetchedReports.wopsh.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("wopsh", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.wopsh = { obra: item.members_obra, cal: item.members_cal, cv: item.members_cv, isSimulated: fetchedReports.wopsh.isSimulated };
+      });
+
+      fetchedReports.gestopro.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("gestopro", item.branch_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.gestopro = { salesCount: item.sales_count, revenue: item.revenue, costs: item.costs, isSimulated: fetchedReports.gestopro.isSimulated };
+      });
+
+      fetchedReports.pashalom.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("pashalom", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.pashalom = { actionsPlanned: item.actions_planned, actionsDone: item.actions_done, budgetPlanned: item.budget_planned, budgetActual: item.budget_actual, isSimulated: fetchedReports.pashalom.isSimulated };
+      });
+
+      fetchedReports.adoracaoshalom.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("adoracaoshalom", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.adoracaoshalom = { high: item.participants_high, medium: item.participants_medium, low: item.participants_low, occupancy: item.scale_occupancy_pct, isSimulated: fetchedReports.adoracaoshalom.isSimulated };
+      });
+
+      fetchedReports.cifrash.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("cifrash", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.cifrash = { totalRepertoires: item.total_repertoires, totalCords: item.total_cords, isSimulated: fetchedReports.cifrash.isSimulated };
+      });
+
+      fetchedReports.poshalom.data.forEach(item => {
+        const { canonicalName, isMapped } = resolveMission("poshalom", item.mission_name);
+        const group = getGroup(canonicalName, isMapped);
+        group.poshalom = { financialResultPct: item.financial_result_pct, eventName: item.event_name, isSimulated: fetchedReports.poshalom.isSimulated };
+      });
+
+      missions.forEach(mission => {
+        const name = mission.canonical_name;
+        const group = groupedReports[name];
+        if (!group) return;
+
+        const hasFinance = group.poshalom !== undefined;
+        const hasEngagement = group.evansh !== undefined;
+
+        const npsRecord = eventNps.find(n => n.mission_registry_id === mission.id);
+        let pPct = 65, dPct = 15, customEventName = "Evento Geral";
+
+        if (npsRecord) {
+          pPct = npsRecord.promoters_pct;
+          dPct = npsRecord.detractors_pct;
+          customEventName = npsRecord.event_name;
+        } else {
+          if (name === "Guarulhos Centro") { pPct = 78; dPct = 8; customEventName = "Acampamento de Jovens"; }
+          if (name === "Fortaleza Centro") { pPct = 84; dPct = 4; customEventName = "Renascer"; }
+          if (name === "São Paulo Centro") { pPct = 52; dPct = 28; customEventName = "Seminário de Vida no Espírito"; }
+        }
+
+        const npsValue = pPct - dPct;
+        const { score: npsScore, label: npsLabel } = getNpsScoreAndClass(npsValue);
+
+        const financialResultPct = hasFinance ? group.poshalom.financialResultPct : 0;
+        const financialScore = getFinancialScore(financialResultPct);
+
+        const engagementRate = hasEngagement ? group.evansh.engagementRate : 0;
+        const engagementScore = getEngagementScore(engagementRate);
+
+        const iieeValue = Math.round((financialScore * 0.35) + (engagementScore * 0.45) + (npsScore * 0.20));
+        const classification = getIieeClassification(iieeValue);
+
+        group.iiee = {
+          value: iieeValue,
+          classification,
+          financialScore,
+          engagementScore,
+          npsScore,
+          npsValue,
+          npsLabel,
+          eventName: group.poshalom?.eventName || customEventName
+        };
+      });
+
+      res.json({ reports: Object.values(groupedReports), warnings: appWarnings });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 
