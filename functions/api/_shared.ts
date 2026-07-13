@@ -87,7 +87,7 @@ export async function getUserEmailFromRequest(env: any, request: Request): Promi
   }
   
   const xMockEmail = request.headers.get("x-mock-email");
-  if (xMockEmail) {
+  if (xMockEmail === "visitante.shalom@comunidadeshalom.org.br") {
     return xMockEmail;
   }
   

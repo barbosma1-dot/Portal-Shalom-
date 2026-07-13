@@ -160,17 +160,18 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
         if (!config) return;
 
         try {
-          // If env has target url, attempt real API fetch, else fallback to mock
+          // If env has target url and key, attempt real API fetch, else fallback to mock
           const targetUrl = context.env[config.urlVar];
+          const appKey = context.env[config.keyVar];
           
-          if (targetUrl) {
+          if (targetUrl && appKey) {
             const apiEndpoint = `${config.defaultUrl}/api/reports/summary`;
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
 
             const res = await fetch(apiEndpoint, {
               headers: {
-                "Authorization": authHeader,
+                "Authorization": `Bearer ${appKey}`,
                 "Content-Type": "application/json"
               },
               signal: controller.signal

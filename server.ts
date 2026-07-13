@@ -126,7 +126,7 @@ async function getUserEmail(req: express.Request): Promise<string | null> {
         console.error("Error reading email from token:", e);
       }
     }
-  } else if (xMockEmail && typeof xMockEmail === "string") {
+  } else if (xMockEmail && typeof xMockEmail === "string" && xMockEmail === "visitante.shalom@comunidadeshalom.org.br") {
     return xMockEmail;
   }
   return null;
@@ -748,9 +748,10 @@ async function startServer() {
 
           try {
             const targetUrl = process.env[config.urlVar];
-            if (targetUrl) {
+            const appKey = process.env[config.keyVar];
+            if (targetUrl && appKey) {
               const fetchRes = await fetch(`${config.defaultUrl}/api/reports/summary`, {
-                headers: { "Authorization": authHeader, "Content-Type": "application/json" }
+                headers: { "Authorization": `Bearer ${appKey}`, "Content-Type": "application/json" }
               });
               if (fetchRes.ok) {
                 const result: any = await fetchRes.json();
