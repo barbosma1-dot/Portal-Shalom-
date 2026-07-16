@@ -23,7 +23,8 @@ import {
   Download,
   Smartphone,
   Monitor,
-  Shield
+  Shield,
+  HandCoins
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { CommunityApp, UserSession } from "./types";
@@ -100,6 +101,16 @@ const staticApps = [
     fallbackIcon: Users,
     colorClass: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/50",
     topBorder: "bg-orange-500"
+  },
+  {
+    id: "benfeitorpaz",
+    name: "Benfeitor da Paz",
+    url: "https://benfeitor-da-paz.pages.dev",
+    description: "CRM de gestão de benfeitores e doações da comunidade Shalom.",
+    icon: "https://benfeitor-da-paz.pages.dev/favicon.ico",
+    fallbackIcon: HandCoins,
+    colorClass: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/50",
+    topBorder: "bg-teal-500"
   },
 ];
 
