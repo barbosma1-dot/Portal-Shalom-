@@ -488,7 +488,8 @@ export default function AdminPanel({ session }: AdminPanelProps) {
       evansh: "Evangelização Shalom",
       adoracaoshalom: "Adorador Shalom",
       cifrash: "Cifras Shalom",
-      wopsh: "WOP Shalom"
+      wopsh: "WOP Shalom",
+      benfeitorpaz: "Benfeitor da Paz"
     };
     return names[appId] || appId;
   };
@@ -938,6 +939,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                   <option value="adoracaoshalom">Adoração Shalom</option>
                   <option value="cifrash">Cifras Shalom</option>
                   <option value="wopsh">WOP Shalom</option>
+                  <option value="benfeitorpaz">Benfeitor da Paz</option>
                 </select>
               </div>
 
@@ -978,6 +980,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                   <option value="adoracaoshalom">Adoração Shalom</option>
                   <option value="cifrash">Cifras Shalom</option>
                   <option value="wopsh">WOP Shalom</option>
+                  <option value="benfeitorpaz">Benfeitor da Paz</option>
                 </select>
               </div>
             </div>
@@ -1070,6 +1073,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                   <option value="adoracaoshalom">Adoração Shalom</option>
                   <option value="cifrash">Cifras Shalom</option>
                   <option value="wopsh">WOP Shalom</option>
+                  <option value="benfeitorpaz">Benfeitor da Paz</option>
                 </select>
               </div>
             </div>
@@ -1221,6 +1225,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                       >
                         <option value="evansh">Evangelização Shalom</option>
                         <option value="wopsh">WOP Shalom</option>
+                  <option value="benfeitorpaz">Benfeitor da Paz</option>
                         <option value="poshalom">PO Shalom</option>
                         <option value="pashalom">PA Shalom</option>
                         <option value="gestopro">Gestão Pro</option>
