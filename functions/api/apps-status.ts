@@ -20,7 +20,8 @@ export const onRequestGet: PagesFunction<any> = async (context) => {
                 id === "gestopro" ? "Gestão Pro" :
                 id === "evansh" ? "Evangelização Shalom" :
                 id === "adoracaoshalom" ? "Adoração Shalom" :
-                id === "cifrash" ? "Cifras Shalom" : id,
+                id === "cifrash" ? "Cifras Shalom" :
+                id === "benfeitorpaz" ? "Benfeitor da Paz" : id,
           url: config.defaultUrl,
           hasKeys: Boolean(url && key),
           isAuthorized
