@@ -36,6 +36,11 @@ export const appConfigs: Record<string, { urlVar: string; keyVar: string; defaul
     urlVar: "SUPABASE_URL_CIFRASH",
     keyVar: "SUPABASE_SERVICE_KEY_CIFRASH",
     defaultUrl: "https://cifras-sh.pages.dev"
+  },
+  benfeitorpaz: {
+    urlVar: "SUPABASE_URL_BENFEITORPAZ",
+    keyVar: "SUPABASE_SERVICE_KEY_BENFEITORPAZ",
+    defaultUrl: "https://benfeitor-da-paz.pages.dev"
   }
 };
 
@@ -47,7 +52,8 @@ export const fallbackAuthorizations: Record<string, string[]> = {
   evansh: ["barbosma1@gmail.com"],
   adoracaoshalom: ["barbosma1@gmail.com"],
   cifrash: ["barbosma1@gmail.com"],
-  wopsh: ["barbosma1@gmail.com"]
+  wopsh: ["barbosma1@gmail.com"],
+  benfeitorpaz: ["barbosma1@gmail.com"]
 };
 
 // Helper to get the main Portal Supabase Client
