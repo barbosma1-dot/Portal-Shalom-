@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Portal Shalom — Teste da integração com o Wop</title>
+<style>
+  body{font-family:system-ui,sans-serif;margin:0;padding:16px;background:#f8fafc;color:#0f172a}
+  h1{font-size:18px;margin:0 0 4px}
+  p{font-size:14px;color:#475569;margin:4px 0 12px}
+  button{display:block;width:100%;padding:14px;margin:8px 0;font-size:16px;border:0;border-radius:10px;background:#032756;color:#fff}
+  button.sec{background:#fff;color:#032756;border:1px solid #cbd5e1}
+  button:disabled{opacity:.5}
+  pre{background:#0b1220;color:#d1fae5;padding:12px;border-radius:10px;font-size:13px;white-space:pre-wrap;word-break:break-word;min-height:80px}
+</style>
+</head>
+<body>
+<h1>Integração Portal ↔ Wop</h1>
+<p>Use logado como administrador do Portal, neste mesmo navegador. Esta página não mostra nem envia seu token a ninguém além do próprio Portal.</p>
+<button id="dry">Simular (não grava nada)</button>
+<button id="status" class="sec">Ver status</button>
+<button id="sync" class="sec">Sincronizar agora (só funciona depois de ligar)</button>
+<pre id="out">Aguardando…</pre>
+<script>
+const out = document.getElementById('out');
+function token() {
+  try {
+    const k = Object.keys(localStorage).find(x => /^sb-.*-auth-token$/.test(x));
+    return k ? JSON.parse(localStorage[k]).access_token : null;
+  } catch (e) { return null; }
+}
+async function call(method, path, btn) {
+  const t = token();
+  if (!t) { out.textContent = 'Sem sessão. Abra o Portal, entre como administrador e volte a esta página.'; return; }
+  btn.disabled = true; out.textContent = 'Executando…';
+  try {
+    const r = await fetch(path, { method, headers: { Authorization: 'Bearer ' + t } });
+    const txt = await r.text();
+    let body; try { body = JSON.stringify(JSON.parse(txt), null, 2); } catch (e) { body = txt.slice(0, 500); }
+    out.textContent = 'HTTP ' + r.status + '\n' + body;
+  } catch (e) { out.textContent = 'Falha de rede: ' + String(e.message || e); }
+  btn.disabled = false;
+}
+dry.onclick = () => call('POST', '/api/integrations/wop/sync?dry=1', dry);
+status.onclick = () => call('GET', '/api/integrations/wop/status', status);
+sync.onclick = () => call('POST', '/api/integrations/wop/sync', sync);
+</script>
+</body>
+</html>
