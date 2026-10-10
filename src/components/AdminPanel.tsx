@@ -29,13 +29,14 @@ import {
   Edit2
 } from "lucide-react";
 import { UserSession } from "../types";
+import WopSyncPanel from "./WopSyncPanel";
 
 interface AdminPanelProps {
   session: UserSession;
 }
 
 export default function AdminPanel({ session }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"iiee" | "perms" | "users" | "missions" | "nps" | "admins">("iiee");
+  const [activeTab, setActiveTab] = useState<"iiee" | "perms" | "users" | "missions" | "nps" | "admins" | "wop">("iiee");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -605,6 +606,18 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         >
           <Shield size={15} className="text-amber-500" />
           <span>Administradores</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("wop")}
+          className={`flex items-center gap-2 px-4 py-4 border-b-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            activeTab === "wop"
+              ? "border-amber-500 text-slate-900 dark:text-white"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+          }`}
+          id="tab-button-wop"
+        >
+          <RefreshCw size={15} />
+          <span>Integração Wop</span>
         </button>
       </div>
 
@@ -1471,6 +1484,9 @@ export default function AdminPanel({ session }: AdminPanelProps) {
             )}
           </div>
         )}
+
+        {/* ==================== TAB: INTEGRAÇÃO WOP (usuários) ==================== */}
+        {activeTab === "wop" && <WopSyncPanel session={session} />}
 
       </div>
     </div>
