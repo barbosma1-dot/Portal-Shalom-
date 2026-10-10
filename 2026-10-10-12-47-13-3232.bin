@@ -1,0 +1,56 @@
+# GEMINI_API_KEY: Required for Gemini AI API calls.
+# AI Studio automatically injects this at runtime from user secrets.
+# Users configure this via the Secrets panel in the AI Studio UI.
+GEMINI_API_KEY="MY_GEMINI_API_KEY"
+
+# APP_URL: The URL where this applet is hosted.
+# AI Studio automatically injects this at runtime with the Cloud Run service URL.
+# Used for self-referential links, OAuth callbacks, and API endpoints.
+APP_URL="MY_APP_URL"
+
+# Portal Shalom - Main Supabase configuration (for Google Login)
+VITE_SUPABASE_URL="https://your-supabase-project.supabase.co"
+VITE_SUPABASE_ANON_KEY="your-supabase-anon-key"
+
+# Individual Community Apps - Supabase URL and Service Role Key (for Admin SSO link generation)
+# These keys are server-only secrets and must NEVER be prefixed with VITE_.
+# Set these in the Secrets panel in the AI Studio UI.
+
+# 1. PA Shalom (pa-shalom.pages.dev)
+SUPABASE_URL_PASHALOM=""
+SUPABASE_SERVICE_KEY_PASHALOM=""
+
+# 2. Wopsh (wopsh.pages.dev)
+SUPABASE_URL_WOPSH=""
+SUPABASE_SERVICE_KEY_WOPSH=""
+
+# 3. Gest-o-pro (gest-opro.pages.dev)
+SUPABASE_URL_GESTOPRO=""
+SUPABASE_SERVICE_KEY_GESTOPRO=""
+
+# 4. Evansh (evansh.pages.dev)
+SUPABASE_URL_EVANSH=""
+SUPABASE_SERVICE_KEY_EVANSH=""
+
+# 5. Adoração Shalom (adora-o-shalom.pages.dev)
+SUPABASE_URL_ADORACOOSHALOM=""
+SUPABASE_SERVICE_KEY_ADORACOOSHALOM=""
+
+# 6. Cifra Sh (cifra-sh.pages.dev)
+SUPABASE_URL_CIFRASH=""
+SUPABASE_SERVICE_KEY_CIFRASH=""
+
+# 7. PO Shalom (poshalom.pages.dev)
+SUPABASE_URL_POSHALOM=""
+SUPABASE_SERVICE_KEY_POSHALOM=""
+
+# Integração com o Wop (hub de usuários) — só servidor / Cloudflare Secrets; NUNCA com prefixo VITE_.
+# SUPABASE_SERVICE_ROLE_KEY é a do PRÓPRIO Portal (nunca a de outro app). Sem ela, a sincronização responde "Servidor não configurado".
+SUPABASE_SERVICE_ROLE_KEY=""
+# URL e anon key do Supabase do Wop (RPCs do feed são protegidas pela chave abaixo).
+WOP_SUPABASE_URL=""
+WOP_SUPABASE_ANON_KEY=""
+# Chave do app "portal" emitida no Wop: select public.hub_issue_key('portal', 'Portal sync feed'); (aparece uma vez; não colar no chat).
+WOP_SYNC_KEY=""
+# "wop" liga a aplicação do feed. Sem ela só a simulação (?dry=1, admin) funciona.
+PORTAL_SYNC_SOURCE=""
