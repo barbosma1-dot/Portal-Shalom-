@@ -21,6 +21,8 @@
 <button id="dry">Simular (não grava nada)</button>
 <button id="status" class="sec">Ver status</button>
 <button id="sync" class="sec">Sincronizar agora (só funciona depois de ligar)</button>
+<button id="pushdry" class="sec">Enviar ao Wop: simular (só conta, não envia)</button>
+<button id="push" class="sec">Enviar ao Wop (só funciona com PORTAL_PUSH_TARGET)</button>
 <pre id="out">Aguardando…</pre>
 <script>
 const out = document.getElementById('out');
@@ -45,6 +47,8 @@ async function call(method, path, btn) {
 dry.onclick = () => call('POST', '/api/integrations/wop/sync?dry=1', dry);
 status.onclick = () => call('GET', '/api/integrations/wop/status', status);
 sync.onclick = () => call('POST', '/api/integrations/wop/sync', sync);
+pushdry.onclick = () => call('POST', '/api/integrations/wop/push?dry=1', pushdry);
+push.onclick = () => call('POST', '/api/integrations/wop/push', push);
 </script>
 </body>
 </html>
