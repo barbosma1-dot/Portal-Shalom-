@@ -498,28 +498,28 @@ export default function AdminPanel({ session }: AdminPanelProps) {
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-lg transition-all" id="admin-panel-container">
       {/* Admin Panel Header Banner */}
-      <div className="bg-slate-950 text-white p-6 sm:p-8 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-slate-950 text-white p-4 sm:p-8 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-400" />
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
+        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
             <Shield size={24} className="text-slate-950" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-display font-bold text-xl sm:text-2xl tracking-tight">Painel do Administrador</h2>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h2 className="font-display font-bold text-lg sm:text-2xl tracking-tight">Painel do Administrador</h2>
               <span className="bg-red-500/25 border border-red-500/35 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Root</span>
             </div>
             <p className="text-slate-400 text-xs sm:text-sm mt-0.5">Console centralizado para gerenciar permissões, integrar missões canônicas e auditar os aplicativos Shalom.</p>
           </div>
         </div>
-        <div className="text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 font-mono self-start md:self-center">
+        <div className="text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 font-mono self-start md:self-center max-w-full break-all">
           Administrador: <span className="text-amber-400 font-semibold">{session.email}</span>
         </div>
       </div>
 
       {/* Internal Notification Alerts */}
       {error && (
-        <div className="mx-6 sm:mx-8 mt-6 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 p-4 rounded-2xl flex items-start gap-3">
+        <div className="mx-4 sm:mx-8 mt-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 p-4 rounded-2xl flex items-start gap-3">
           <AlertCircle className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" size={16} />
           <div className="text-xs text-red-800 dark:text-red-300">
             <p className="font-semibold mb-0.5">Falha de Operação</p>
@@ -529,7 +529,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
       )}
 
       {success && (
-        <div className="mx-6 sm:mx-8 mt-6 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-2xl flex items-start gap-3">
+        <div className="mx-4 sm:mx-8 mt-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-2xl flex items-start gap-3">
           <CheckCircle className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" size={16} />
           <div className="text-xs text-emerald-800 dark:text-emerald-300">
             <p className="font-semibold mb-0.5">Sucesso</p>
@@ -539,10 +539,10 @@ export default function AdminPanel({ session }: AdminPanelProps) {
       )}
 
       {/* Main Tabs Selection Row */}
-      <div className="flex flex-wrap border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 px-4 sm:px-6">
+      <div className="flex flex-nowrap overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 px-2 sm:px-6" id="admin-tabs-bar">
         <button
           onClick={() => setActiveTab("iiee")}
-          className={`flex items-center gap-2 px-4 py-4 border-b-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`flex shrink-0 items-center gap-2 px-3 sm:px-4 py-3.5 border-b-2 whitespace-nowrap text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeTab === "iiee"
               ? "border-amber-500 text-slate-900 dark:text-white"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -553,7 +553,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         </button>
         <button
           onClick={() => setActiveTab("perms")}
-          className={`flex items-center gap-2 px-4 py-4 border-b-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`flex shrink-0 items-center gap-2 px-3 sm:px-4 py-3.5 border-b-2 whitespace-nowrap text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeTab === "perms"
               ? "border-amber-500 text-slate-900 dark:text-white"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -564,7 +564,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         </button>
         <button
           onClick={() => setActiveTab("users")}
-          className={`flex items-center gap-2 px-4 py-4 border-b-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`flex shrink-0 items-center gap-2 px-3 sm:px-4 py-3.5 border-b-2 whitespace-nowrap text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeTab === "users"
               ? "border-amber-500 text-slate-900 dark:text-white"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -575,7 +575,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         </button>
         <button
           onClick={() => setActiveTab("missions")}
-          className={`flex items-center gap-2 px-4 py-4 border-b-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`flex shrink-0 items-center gap-2 px-3 sm:px-4 py-3.5 border-b-2 whitespace-nowrap text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeTab === "missions"
               ? "border-amber-500 text-slate-900 dark:text-white"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -586,7 +586,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         </button>
         <button
           onClick={() => setActiveTab("nps")}
-          className={`flex items-center gap-2 px-4 py-4 border-b-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`flex shrink-0 items-center gap-2 px-3 sm:px-4 py-3.5 border-b-2 whitespace-nowrap text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeTab === "nps"
               ? "border-amber-500 text-slate-900 dark:text-white"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -597,7 +597,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         </button>
         <button
           onClick={() => setActiveTab("admins")}
-          className={`flex items-center gap-2 px-4 py-4 border-b-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`flex shrink-0 items-center gap-2 px-3 sm:px-4 py-3.5 border-b-2 whitespace-nowrap text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeTab === "admins"
               ? "border-amber-500 text-slate-900 dark:text-white"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -609,7 +609,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         </button>
         <button
           onClick={() => setActiveTab("wop")}
-          className={`flex items-center gap-2 px-4 py-4 border-b-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`flex shrink-0 items-center gap-2 px-3 sm:px-4 py-3.5 border-b-2 whitespace-nowrap text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeTab === "wop"
               ? "border-amber-500 text-slate-900 dark:text-white"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -621,7 +621,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         </button>
       </div>
 
-      <div className="p-6 sm:p-8" id="admin-panel-tabs-content">
+      <div className="p-4 sm:p-8" id="admin-panel-tabs-content">
         
         {/* ==================== TAB 1: IIEE CONSOLIDATED REPORTS ==================== */}
         {activeTab === "iiee" && (
