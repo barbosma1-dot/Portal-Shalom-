@@ -1,10 +1,10 @@
 {
-  "name": "Portal Shalom",
-  "short_name": "Portal Shalom",
+  "name": "Portal Sh",
+  "short_name": "Portal Sh",
   "description": "Portal de Aplicativos Integrados da Comunidade Shalom",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
+  "background_color": "#ffffff",
   "theme_color": "#0f172a",
   "orientation": "portrait",
   "icons": [
