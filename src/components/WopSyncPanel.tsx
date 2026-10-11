@@ -25,10 +25,11 @@ interface OvGroup { type: string; total: number; linked: number; items: OvEntity
 interface OvUser {
   id: string | null; email_masked: string; nivel: string | null; area: string | null; funcao: string | null;
   ativo: boolean | null; regional: string | null; mission: string | null; setores: number;
-  pending_nivel: string | null; can_request: boolean;
+  apps: string[]; pending_nivel: string | null; can_request: boolean;
 }
 interface OvRequest { id: number; email_masked: string; nivel: string; base_nivel: string | null; status: string | null; result: string | null; requested_at: string | null }
-interface Overview { entities: OvGroup[]; users: OvUser[]; requests: OvRequest[] }
+interface OvAuth { total_pessoas: number; fora_do_espelho: number; espelho_sem_app: number }
+interface Overview { entities: OvGroup[]; users: OvUser[]; requests: OvRequest[]; authorizations: OvAuth | null }
 
 const LABEL: Record<Kind, string> = {
   dry: "Simulação",
@@ -54,6 +55,17 @@ const AREA_LABEL: Record<string, string> = {
   apostolico: "Apostólico",
   formativo: "Formativo",
   missionario: "Missionário (Comunitário)"
+};
+
+// ids de app usados em app_authorizations (iguais aos de functions/api/_shared.ts); id desconhecido aparece como está.
+const APP_LABEL: Record<string, string> = {
+  pashalom: "PA",
+  poshalom: "PO",
+  wopsh: "Wop",
+  evansh: "EvanSh",
+  adoracaoshalom: "Adoração Sh",
+  cifrash: "Cifras",
+  benfeitorpaz: "Benfeitor da Paz"
 };
 
 const TALLY_LABEL: Record<string, string> = {
@@ -184,7 +196,8 @@ export default function WopSyncPanel({ session }: WopSyncPanelProps) {
       setOverview({
         entities: Array.isArray(r.body.entities) ? r.body.entities : [],
         users: Array.isArray(r.body.users) ? r.body.users : [],
-        requests: Array.isArray(r.body.requests) ? r.body.requests : []
+        requests: Array.isArray(r.body.requests) ? r.body.requests : [],
+        authorizations: r.body.authorizations ?? null
       });
     } else if (r.status === null) {
       setOvError("Falha de rede ao carregar a visão.");
@@ -434,7 +447,13 @@ export default function WopSyncPanel({ session }: WopSyncPanelProps) {
               </p>
               <p className="text-xs text-slate-500">
                 Nível, área, missão e regional vêm do Wop e aqui são só leitura. "Pedir mudança" cria um pedido; ele vai ao Wop em "Enviar ao Wop".
+                Os apps liberados vêm da aba "Autorizações SSO": o nível não concede acesso a nenhum app.
               </p>
+              {overview.authorizations && (
+                <p className="text-xs text-slate-500">
+                  {overview.authorizations.total_pessoas} pessoa(s) com app liberado · {overview.authorizations.fora_do_espelho} liberada(s) que não estão no espelho do Wop · {overview.authorizations.espelho_sem_app} do espelho sem nenhum app liberado.
+                </p>
+              )}
               <input
                 value={filter}
                 onChange={e => { setFilter(e.target.value); setShown(USERS_PAGE); }}
@@ -463,6 +482,9 @@ export default function WopSyncPanel({ session }: WopSyncPanelProps) {
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
                       {u.regional ? `Regional: ${u.regional}` : "Sem regional"} · {u.mission ? `Missão: ${u.mission}` : "Sem missão"} · {u.setores} setor(es)
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Apps liberados: {u.apps.length ? u.apps.map(a => APP_LABEL[a] ?? a).join(", ") : "nenhum"}
                     </p>
                     {u.pending_nivel && (
                       <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
