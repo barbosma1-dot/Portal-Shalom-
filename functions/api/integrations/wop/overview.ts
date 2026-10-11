@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 // GET /api/integrations/wop/overview   (pasta em minúsculas: functions/api/integrations/wop/)
 // Só admin do Portal (portal_admins). Devolve a "visão" da integração para a aba Wop do Painel do Administrador:
 // catálogo espelhado (pt_entity_map, com o vínculo de missões), usuários espelhados (pt_hub_users) e pedidos de nível (pt_nivel_outbox).
-// Somente leitura. E-mails saem MASCARADOS; quem pede mudança de nível identifica a pessoa pelo wop_user_id (o e-mail nunca volta ao navegador).
+// Somente leitura. Também mostra, por usuário, os apps liberados em app_authorizations (tabela do PRÓPRIO Portal; nunca usa chaves de outros apps).
+// O nível NUNCA concede acesso a app: o acesso vem só de app_authorizations. E-mails saem MASCARADOS; quem pede mudança de nível identifica a pessoa pelo wop_user_id (o e-mail nunca volta ao navegador).
 interface Env {
   VITE_SUPABASE_URL?: string;
   SUPABASE_URL?: string;
@@ -40,14 +41,15 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
   const adm = await admin.from("portal_admins").select("id").eq("email", email).limit(1);
   if (adm.error || !adm.data || adm.data.length === 0) return json({ error: "Apenas o administrador do Portal." }, 403);
 
-  const [ent, usr, reg, out, pad] = await Promise.all([
+  const [ent, usr, reg, out, pad, aut] = await Promise.all([
     admin.from("pt_entity_map").select("entity_type,wop_id,app_ref,name,area,active").order("entity_type").order("name").limit(2000),
     admin.from("pt_hub_users").select("wop_user_id,email,nivel,area,funcao,regional_id,mission_id,allowed_sectors,ativo").order("email").limit(2000),
     admin.from("mission_registry").select("id,canonical_name").limit(2000),
     admin.from("pt_nivel_outbox").select("id,email,nivel,base_nivel,status,result,requested_at").order("id", { ascending: false }).limit(30),
-    admin.from("portal_admins").select("email").limit(500)
+    admin.from("portal_admins").select("email").limit(500),
+    admin.from("app_authorizations").select("email,app_id").limit(10000)
   ]);
-  if (ent.error || usr.error || reg.error || out.error || pad.error) {
+  if (ent.error || usr.error || reg.error || out.error || pad.error || aut.error) {
     return json({ error: "Visão indisponível." }, 500);
   }
 
@@ -92,6 +94,19 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
     }
   }
 
+  // Apps liberados por e-mail (somente leitura). Contagem de autorizações cujo e-mail não está no espelho: só número, sem e-mails.
+  const appsByEmail = new Map<string, Set<string>>();
+  for (const a of aut.data || []) {
+    const r = a as any;
+    const k = String(r.email || "").toLowerCase().trim();
+    if (!k || !r.app_id) continue;
+    if (!appsByEmail.has(k)) appsByEmail.set(k, new Set<string>());
+    appsByEmail.get(k)!.add(String(r.app_id));
+  }
+  const mirrorEmails = new Set((usr.data || []).map((u: any) => String(u.email || "").toLowerCase().trim()));
+  let authorizedOutsideMirror = 0;
+  for (const k of appsByEmail.keys()) if (!mirrorEmails.has(k)) authorizedOutsideMirror++;
+
   const users = (usr.data || []).map((u: any) => {
     const mail = String(u.email || "").toLowerCase().trim();
     const isPortalAdmin = adminEmails.has(mail);
@@ -106,6 +121,7 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
       regional: u.regional_id ? entName.get(String(u.regional_id)) ?? null : null,
       mission: u.mission_id ? entName.get(String(u.mission_id)) ?? registryName.get(String(u.mission_id)) ?? null : null,
       setores: sectors.length,
+      apps: Array.from(appsByEmail.get(mail) ?? []).sort(),
       pending_nivel: pendingByEmail.get(mail) ?? null,
       can_request: !!u.wop_user_id && u.nivel !== "admin" && !isPortalAdmin
     };
@@ -121,5 +137,11 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
     requested_at: o.requested_at ?? null
   }));
 
-  return json({ ok: true, entities, users, requests });
+  const authorizations = {
+    total_pessoas: appsByEmail.size,
+    fora_do_espelho: authorizedOutsideMirror,
+    espelho_sem_app: users.filter((u: { apps: string[] }) => u.apps.length === 0).length
+  };
+
+  return json({ ok: true, entities, users, requests, authorizations });
 };
