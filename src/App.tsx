@@ -1,117 +1,38 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { 
-  Church, 
-  Music, 
-  Users, 
-  Flame, 
-  Heart, 
-  BarChart3, 
-  HelpCircle, 
-  Key, 
-  Lock, 
-  Unlock, 
-  LogOut, 
-  ArrowRight, 
-  ExternalLink, 
-  RefreshCw, 
-  Copy, 
-  Check, 
-  Sparkles, 
+import {
+  Key,
+  Lock,
+  Unlock,
+  LogOut,
+  RefreshCw,
+  Sparkles,
   Info,
   AlertCircle,
   Download,
   Smartphone,
   Monitor,
   Shield,
-  HandCoins
+  LayoutGrid,
+  ChevronDown,
+  Check,
+  X
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
-import { CommunityApp, UserSession } from "./types";
+import { LOGOS } from "./lib/logos";
+import { UserSession } from "./types";
 import AdminPanel from "./components/AdminPanel";
 
-// List of static applications
+// Lista dos aplicativos. A logo de cada um vem de LOGOS[id] (src/lib/logos.ts).
 const staticApps = [
-  {
-    id: "pashalom",
-    name: "PA Shalom",
-    url: "https://pa-shalom.pages.dev",
-    description: "Planejamento Apostólico e células da comunidade Shalom.",
-    icon: "https://pa-shalom.pages.dev/favicon.ico",
-    fallbackIcon: Church,
-    colorClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50",
-    topBorder: "bg-blue-500"
-  },
-  {
-    id: "poshalom",
-    name: "PO Shalom",
-    url: "https://poshalom.pages.dev",
-    description: "Planejamento Orçamentário e finanças da comunidade Shalom.",
-    icon: "https://poshalom.pages.dev/favicon.ico",
-    fallbackIcon: Users,
-    colorClass: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50",
-    topBorder: "bg-amber-500"
-  },
-  {
-    id: "gestopro",
-    name: "Gestão Pro",
-    url: "https://gest-opro.pages.dev",
-    description: "Gerenciador profissional de projetos, orçamentos e missões.",
-    icon: "https://gest-opro.pages.dev/favicon.ico",
-    fallbackIcon: BarChart3,
-    colorClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50",
-    topBorder: "bg-emerald-500"
-  },
-  {
-    id: "evansh",
-    name: "Evangelização Shalom",
-    url: "https://evansh.pages.dev",
-    description: "Ações de evangelização e acompanhamento de vocacionados.",
-    icon: "https://evansh.pages.dev/favicon.ico",
-    fallbackIcon: Flame,
-    colorClass: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50",
-    topBorder: "bg-rose-500"
-  },
-  {
-    id: "adoracaoshalom",
-    name: "Adoração Shalom",
-    url: "https://adora-o-shalom.pages.dev",
-    description: "Reserva de capela, adoração perpétua e vigílias.",
-    icon: "https://adora-o-shalom.pages.dev/favicon.ico",
-    fallbackIcon: Heart,
-    colorClass: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/50",
-    topBorder: "bg-indigo-500"
-  },
-  {
-    id: "cifrash",
-    name: "Cifras Shalom",
-    url: "https://cifras-sh.pages.dev",
-    description: "Repositório litúrgico de partituras e cifras de louvores.",
-    icon: "https://cifras-sh.pages.dev/favicon.ico",
-    fallbackIcon: Music,
-    colorClass: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-900/50",
-    topBorder: "bg-violet-500"
-  },
-  {
-    id: "wopsh",
-    name: "WOP Shalom",
-    url: "https://wopsh.pages.dev",
-    description: "Portal de formação, ministérios e escalas pastorais.",
-    icon: "https://wopsh.pages.dev/favicon.ico",
-    fallbackIcon: Users,
-    colorClass: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/50",
-    topBorder: "bg-orange-500"
-  },
-  {
-    id: "benfeitorpaz",
-    name: "Benfeitor da Paz",
-    url: "https://benfeitor-da-paz.pages.dev",
-    description: "CRM de gestão de benfeitores e doações da comunidade Shalom.",
-    icon: "https://benfeitor-da-paz.pages.dev/favicon.ico",
-    fallbackIcon: HandCoins,
-    colorClass: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/50",
-    topBorder: "bg-teal-500"
-  },
+  { id: "pashalom", name: "PA Shalom", url: "https://pa-shalom.pages.dev" },
+  { id: "poshalom", name: "PO Shalom", url: "https://poshalom.pages.dev" },
+  { id: "gestopro", name: "Gestão Pro", url: "https://gest-opro.pages.dev" },
+  { id: "evansh", name: "Evangelização Shalom", url: "https://evansh.pages.dev" },
+  { id: "adoracaoshalom", name: "Adoração Shalom", url: "https://adora-o-shalom.pages.dev" },
+  { id: "cifrash", name: "Cifras Shalom", url: "https://cifras-sh.pages.dev" },
+  { id: "wopsh", name: "WOP Shalom", url: "https://wopsh.pages.dev" },
+  { id: "benfeitorpaz", name: "Benfeitor da Paz", url: "https://benfeitor-da-paz.pages.dev" }
 ];
 
 export default function App() {
@@ -121,7 +42,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [failedIcons, setFailedIcons] = useState<Record<string, boolean>>({});
 
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPWAModal, setShowPWAModal] = useState(false);
@@ -129,6 +49,7 @@ export default function App() {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [appsStatus, setAppsStatus] = useState<Record<string, { id: string; name: string; url: string; hasKeys: boolean; isAuthorized?: boolean }>>({});
   const [portalView, setPortalView] = useState<"launcher" | "admin">("launcher");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Fetch app status configurations from local backend API
   useEffect(() => {
@@ -186,6 +107,10 @@ export default function App() {
     };
     checkAdminStatus();
   }, [session]);
+
+  // Quem vê o Painel Admin: administrador confirmado pelo servidor (portal_admins) ou o administrador raiz de sempre.
+  // O servidor continua sendo quem autoriza de verdade cada ação do painel.
+  const canAdmin = isAdmin || session?.email?.toLowerCase().trim() === "barbosma1@gmail.com";
 
   const handleDemoLogin = () => {
     const demoSession: UserSession = {
@@ -352,6 +277,8 @@ export default function App() {
 
   const handleLogout = async () => {
     setError(null);
+    setMenuOpen(false);
+    setPortalView("launcher");
     if (session?.isMock) {
       setSession(null);
       localStorage.removeItem("portal_shalom_demo_session");
@@ -482,50 +409,93 @@ export default function App() {
 
       {/* HEADER BAR */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-xs" id="main-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center shadow-md shadow-amber-500/10">
-              <Church className="text-white" size={20} />
-            </div>
-            <div>
-              <h1 className="font-display font-bold text-lg leading-tight tracking-tight text-slate-900 dark:text-white">
-                Portal Shalom
-              </h1>
-              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono tracking-wider uppercase font-semibold">Comunidade Católica</span>
-            </div>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+          {/* Botão da logo Portal Sh: abre o menu (Launcher / Painel Admin) */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => session && setMenuOpen(o => !o)}
+              className="flex items-center gap-1.5 rounded-2xl p-1 pr-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              aria-label="Menu do Portal Sh"
+              aria-expanded={menuOpen}
+              id="portal-menu-button"
+            >
+              <img src={LOGOS.portal_symbol} alt="Portal Sh" className="w-11 h-11 rounded-xl bg-white object-contain" />
+              {session && <ChevronDown size={16} className={`text-slate-500 transition-transform ${menuOpen ? "rotate-180" : ""}`} />}
+            </button>
+
+            <AnimatePresence>
+              {session && menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="absolute left-0 top-full mt-2 z-50 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2"
+                    id="portal-menu"
+                  >
+                    <button
+                      onClick={() => { setPortalView("launcher"); setMenuOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                        portalView === "launcher"
+                          ? "bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
+                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <LayoutGrid size={18} />
+                      <span>Launcher</span>
+                    </button>
+                    {canAdmin && (
+                      <button
+                        onClick={() => { setPortalView("admin"); setMenuOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                          portalView === "admin"
+                            ? "bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
+                            : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <Shield size={18} className="text-amber-500" />
+                        <span>Painel Admin</span>
+                      </button>
+                    )}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
-            {/* PWA INSTALL BUTTON */}
+          <div className="flex items-center gap-1 sm:gap-3 min-w-0">
+            {/* PWA INSTALL BUTTON (só o ícone no celular) */}
             <button
               onClick={handleInstallClick}
-              className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50 flex items-center gap-1.5 px-3 h-9 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-all cursor-pointer shadow-xs active:scale-95"
+              className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50 flex items-center justify-center gap-1.5 w-9 sm:w-auto h-9 sm:px-3 rounded-lg border border-amber-200 dark:border-amber-900/50 transition-all cursor-pointer shadow-xs active:scale-95"
               id="pwa-install-button"
-              title="Instalar Portal Shalom como Aplicativo no seu dispositivo"
+              title="Instalar Portal Sh como aplicativo no seu dispositivo"
+              aria-label="Instalar aplicativo"
             >
-              <Download size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
-              <span>Instalar App</span>
+              <Download size={16} className="shrink-0 text-amber-600 dark:text-amber-400" />
+              <span className="hidden sm:inline">Instalar App</span>
             </button>
 
             {session ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 sm:gap-3">
                 <div className="hidden sm:block text-right">
                   <p className="text-xs font-semibold text-slate-950 dark:text-white max-w-[150px] truncate">{session.name}</p>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 max-w-[150px] truncate font-mono">{session.email}</p>
                 </div>
                 {session.avatarUrl ? (
-                  <img 
-                    src={session.avatarUrl} 
-                    alt="Avatar" 
-                    className="w-9 h-9 rounded-full border-2 border-amber-400 bg-amber-50"
+                  <img
+                    src={session.avatarUrl}
+                    alt="Avatar"
+                    className="w-9 h-9 rounded-full border-2 border-amber-400 bg-amber-50 shrink-0"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-sm border-2 border-amber-400">
+                  <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-sm border-2 border-amber-400 shrink-0">
                     {session.name.substring(0, 2).toUpperCase()}
                   </div>
                 )}
-                <button 
+                <button
                   onClick={() => setShowConfigModal(true)}
                   className="p-2 text-slate-500 hover:text-amber-500 dark:text-slate-400 dark:hover:text-amber-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   title="Configurações das Chaves de SSO"
@@ -533,7 +503,7 @@ export default function App() {
                 >
                   <Key size={18} />
                 </button>
-                <button 
+                <button
                   onClick={handleLogout}
                   className="p-2 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   title="Sair"
@@ -576,11 +546,13 @@ export default function App() {
                 {/* Visual Accent */}
                 <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500" />
                 
-                {/* Logo and Greeting */}
-                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-6 shadow-inner">
-                  <Church size={32} />
-                </div>
-                
+                {/* Logo Portal Sh */}
+                <img
+                  src={LOGOS.portal_full}
+                  alt="Portal Sh"
+                  className="w-36 h-36 mx-auto mb-4 rounded-2xl bg-white object-contain"
+                />
+
                 <h2 className="font-display font-bold text-2xl text-slate-900 dark:text-white tracking-tight mb-2">
                   Portal de Aplicativos
                 </h2>
@@ -654,158 +626,48 @@ export default function App() {
               className="space-y-8"
               id="logged-in-panel"
             >
-              {/* Conditional Segmented View Switcher for Administrators */}
-              {session.email?.toLowerCase().trim() === "barbosma1@gmail.com" && (
-                <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl max-w-xs mx-auto md:mx-0 border border-slate-200/60 dark:border-slate-800 shadow-inner">
-                  <button
-                    onClick={() => setPortalView("launcher")}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                      portalView === "launcher"
-                        ? "bg-white dark:bg-slate-850 text-slate-900 dark:text-white shadow-xs"
-                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-                    }`}
-                  >
-                    <Church size={14} />
-                    <span>Launcher</span>
-                  </button>
-                  <button
-                    onClick={() => setPortalView("admin")}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                      portalView === "admin"
-                        ? "bg-white dark:bg-slate-850 text-slate-900 dark:text-white shadow-xs"
-                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-                    }`}
-                  >
-                    <Shield size={14} className="text-amber-500" />
-                    <span>Painel Admin</span>
-                  </button>
-                </div>
-              )}
-
-              {portalView === "admin" && session.email?.toLowerCase().trim() === "barbosma1@gmail.com" ? (
+              {portalView === "admin" && canAdmin ? (
                 <AdminPanel session={session} />
               ) : (
-                /* LAUNCHER GRID SECTION */
-                <div className="space-y-8">
-                  {/* Launcher Header Title */}
-                  <div className="text-center md:text-left flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
-                    <div>
-                      <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                        <h2 className="font-display font-bold text-2xl tracking-tight text-slate-900 dark:text-white">
-                          Seus Aplicativos Integrados
-                        </h2>
-                        <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase dark:bg-amber-950/50 dark:text-amber-300">
-                          Launcher
-                        </span>
-                      </div>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Selecione um sistema para acessar imediatamente em uma nova aba. Você está conectado como <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono">{session.email}</span>.
-                      </p>
-                    </div>
+                /* LAUNCHER: cada app é a própria logo; só os símbolos de SSO e de liberação */
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <h2 className="font-display font-bold text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-white">
+                      Seus aplicativos
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-all">
+                      {session.email}
+                    </p>
                   </div>
 
-                  {/* STAGGERED APP GRID CARDS */}
-                  <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6" id="apps-grid">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 max-w-3xl mx-auto w-full" id="apps-grid">
                     {staticApps.map((app, index) => {
-                      const FallbackIcon = app.fallbackIcon;
-                      const hasImageFailed = failedIcons[app.name];
-
+                      const st = appsStatus[app.id];
+                      const authorized = !!st?.isAuthorized;
+                      const hasKeys = !!st?.hasKeys;
                       return (
-                        <motion.div
-                          key={app.name}
-                          initial={{ opacity: 0, y: 15 }}
+                        <motion.button
+                          key={app.id}
+                          initial={{ opacity: 0, y: 12 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between group relative pt-6 sm:pt-8 overflow-hidden"
+                          transition={{ delay: index * 0.04 }}
+                          onClick={() => handleAccessApp(app.id, app.url)}
+                          className={`relative aspect-square w-full rounded-3xl overflow-hidden shadow-md hover:shadow-xl active:scale-95 transition-all cursor-pointer border border-slate-200 dark:border-slate-800 ${
+                            authorized ? "" : "opacity-60"
+                          }`}
+                          aria-label={authorized ? `Abrir ${app.name}` : `Acesso restrito: ${app.name}`}
+                          title={authorized ? app.name : `${app.name} (acesso restrito)`}
                         >
-                          {/* Top colored border accent */}
-                          <div className={`absolute top-0 left-0 right-0 h-1.5 ${app.topBorder}`} />
-
-                          <div>
-                            {/* Top Indicator */}
-                            <div className="flex items-center justify-between mb-4">
-                              {/* App Icon / Logo Wrapper */}
-                              {hasImageFailed ? (
-                                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center border ${app.colorClass}`}>
-                                  <FallbackIcon size={20} className="sm:w-5 sm:h-5" />
-                                </div>
-                              ) : (
-                                <img
-                                   src={app.icon}
-                                   alt={app.name}
-                                   onError={() => setFailedIcons(prev => ({ ...prev, [app.name]: true }))}
-                                   className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-800"
-                                   referrerPolicy="no-referrer"
-                                />
-                              )}
-
-                              {/* Dual status indicators */}
-                              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5">
-                                {/* Connection indicator */}
-                                {appsStatus[app.id]?.hasKeys ? (
-                                  <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Conexão SSO segura e direta ativa">
-                                    <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span>SSO</span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/15" title="Utilizando redirecionamento seguro com chaves de simulação">
-                                    <span className="w-1 h-1 rounded-full bg-amber-500" />
-                                    <span>Simulado</span>
-                                  </div>
-                                )}
-
-                                {/* Permission indicator */}
-                                {appsStatus[app.id]?.isAuthorized ? (
-                                  <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15" title="Seu e-mail está cadastrado e autorizado">
-                                    <Check size={10} />
-                                    <span>Liberado</span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/15" title="Acesso restrito. Solicite acesso ao administrador barbosma1@gmail.com">
-                                    <Lock size={10} />
-                                    <span>Restrito</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Title & Description */}
-                            <h3 className="font-display font-bold text-sm sm:text-lg text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
-                              {app.name}
-                            </h3>
-                            <p className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs mt-1.5 leading-relaxed min-h-[44px] sm:min-h-[40px] line-clamp-2">
-                              {app.description}
-                            </p>
-                            
-                            {/* Domain text */}
-                            <p className="text-[9px] sm:text-[10px] font-mono text-slate-400 mt-2 flex items-center gap-1">
-                              <ExternalLink size={10} />
-                              {app.url.replace("https://", "")}
-                            </p>
-                          </div>
-
-                          {/* Action Link/Button */}
-                          <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
-                            {appsStatus[app.id]?.isAuthorized ? (
-                              <button
-                                onClick={() => handleAccessApp(app.id, app.url)}
-                                className="w-full h-9 sm:h-10 rounded-xl bg-slate-900 hover:bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all group-hover:shadow-sm dark:bg-slate-800 dark:hover:bg-amber-600 cursor-pointer font-sans"
-                              >
-                                <span>Acessar App</span>
-                                <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
-                              </button>
+                          <img src={LOGOS[app.id]} alt={app.name} className="w-full h-full object-cover" draggable={false} />
+                          <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-white/95 dark:bg-slate-900/90 px-2 py-1 shadow-sm">
+                            <Key size={13} className={hasKeys ? "text-emerald-600" : "text-amber-500"} aria-hidden="true" />
+                            {authorized ? (
+                              <Check size={14} strokeWidth={3} className="text-emerald-600" aria-hidden="true" />
                             ) : (
-                              <button
-                                onClick={() => handleAccessApp(app.id, app.url)}
-                                className="w-full h-9 sm:h-10 rounded-xl bg-slate-50 hover:bg-rose-50/50 text-slate-400 hover:text-rose-600 dark:bg-slate-850 dark:hover:bg-rose-950/20 dark:text-slate-500 dark:hover:text-rose-400 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all border border-slate-200/50 dark:border-slate-800/50 cursor-pointer font-sans"
-                                title="Acesso restrito. Clique para solicitar permissão."
-                              >
-                                <Lock size={12} />
-                                <span>Acesso Restrito</span>
-                              </button>
+                              <X size={14} strokeWidth={3} className="text-red-600" aria-hidden="true" />
                             )}
-                          </div>
-                        </motion.div>
+                          </span>
+                        </motion.button>
                       );
                     })}
                   </div>
