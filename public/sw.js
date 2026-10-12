@@ -1,9 +1,10 @@
-const CACHE_NAME = 'portal-shalom-v1';
+const CACHE_NAME = 'portal-shalom-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icon.jpg'
+  '/icon.jpg',
+  '/brand/portal-logo-round.png'
 ];
 
 // Install event - caching basic resources
