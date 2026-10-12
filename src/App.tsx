@@ -1,4 +1,4 @@
-import { ThemeToggle, GoogleLogin } from './kit';
+import { ThemeToggle, GoogleLogin, Modal } from './kit';
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -678,38 +678,18 @@ export default function App() {
       </footer>
 
       {/* MODAL 3: PWA INSTALLATION INSTRUCTIONS */}
-      <AnimatePresence>
-        {showPWAModal && (
-          <div className="fixed inset-0 bg-slate-950/75 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800 text-left"
-              id="pwa-modal"
-            >
-              <div className="flex items-start justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-md shadow-amber-500/5">
-                    <Download size={20} />
-                  </div>
-                  <div>
-                    <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
-                      Instalar Portal Shalom
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Adicione à tela inicial do seu dispositivo
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowPWAModal(false)}
-                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600"
-                >
-                  ✕
-                </button>
-              </div>
-
+      <Modal
+        open={showPWAModal}
+        onClose={() => setShowPWAModal(false)}
+        title="Instalar Portal Shalom"
+        footer={
+          <button type="button" className="sh-btn sh-btn-primary" onClick={() => setShowPWAModal(false)}>
+            Entendi, Fechar
+          </button>
+        }
+      >
+        <div id="pwa-modal">
+          <p className="text-xs text-slate-500 mb-4">Adicione à tela inicial do seu dispositivo</p>
               <div className="space-y-4">
                 <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   O Portal Shalom é um aplicativo web completo (PWA). Você pode instalá-lo em seu celular, tablet ou computador para acessá-lo como um aplicativo nativo diretamente da sua tela inicial com carregamento instantâneo.
@@ -756,19 +736,8 @@ export default function App() {
                   </div>
                 </div>
               </div>
-
-              <div className="mt-5 pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-                <button
-                  onClick={() => setShowPWAModal(false)}
-                  className="px-5 py-2 bg-slate-900 text-white dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 font-semibold text-xs rounded-xl transition-all"
-                >
-                  Entendi, Fechar
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+        </div>
+      </Modal>
 
     </div>
   );
