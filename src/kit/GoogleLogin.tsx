@@ -11,20 +11,43 @@ export async function signInWithGoogle(supabase: SupabaseClient, redirectTo: str
   if (error) throw error;
 }
 
-export function GoogleLogin({
-  supabase, label = 'Entrar com Google', redirectTo, onError,
-}: { supabase: SupabaseClient; label?: string; redirectTo?: string; onError?: (message: string) => void }) {
+type Props = {
+  /** Usado quando o app não tem fluxo próprio de login Google. */
+  supabase?: SupabaseClient;
+  /** Fluxo próprio do app (popup, redirecionamento especial...). Tem prioridade sobre `supabase`. */
+  onClick?: () => void | Promise<void>;
+  label?: string;
+  redirectTo?: string;
+  disabled?: boolean;
+  id?: string;
+  onError?: (message: string) => void;
+};
+
+/** Botão padrão "Entrar com Google": mesmo visual em todos os apps. */
+export function GoogleLogin({ supabase, onClick, label = 'Entrar com Google', redirectTo, disabled = false, id, onError }: Props) {
   const [loading, setLoading] = useState(false);
+
+  const handle = async () => {
+    setLoading(true);
+    try {
+      if (onClick) await onClick();
+      else if (supabase) await signInWithGoogle(supabase, redirectTo);
+      else throw new Error('Login com Google não configurado.');
+      // No fluxo padrão a página é redirecionada: mantém o botão ocupado até sair.
+      if (onClick) setLoading(false);
+    } catch (e: any) {
+      onError?.(e?.message ?? 'Não foi possível entrar com o Google.');
+      setLoading(false);
+    }
+  };
+
   return (
     <button
+      id={id}
       type="button"
       className="sh-btn sh-btn-secondary sh-btn-block sh-google-btn"
-      disabled={loading}
-      onClick={async () => {
-        setLoading(true);
-        try { await signInWithGoogle(supabase, redirectTo); }
-        catch (e: any) { onError?.(e?.message ?? 'Não foi possível entrar com o Google.'); setLoading(false); }
-      }}
+      disabled={disabled || loading}
+      onClick={handle}
     >
       {loading ? (
         <Loader2 size={18} className="animate-spin" />
