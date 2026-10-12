@@ -1,4 +1,4 @@
-import { ThemeToggle, GoogleLogin, Modal } from './kit';
+import { ThemeToggle, GoogleLogin, Modal, LogoMenuButton } from './kit';
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -15,7 +15,6 @@ import {
   Monitor,
   Shield,
   LayoutGrid,
-  ChevronDown,
   Check,
   X
 } from "lucide-react";
@@ -413,16 +412,13 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
           {/* Botão da logo Portal Sh: abre o menu (Launcher / Painel Admin) */}
           <div className="relative shrink-0">
-            <button
+            <LogoMenuButton
+              src="/brand/portal-logo-round.png"
+              alt="Portal Sh"
+              label="Menu do Portal Sh"
+              expanded={menuOpen}
               onClick={() => session && setMenuOpen(o => !o)}
-              className="flex items-center gap-1.5 rounded-2xl p-1 pr-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              aria-label="Menu do Portal Sh"
-              aria-expanded={menuOpen}
-              id="portal-menu-button"
-            >
-              <img src={LOGOS.portal_symbol} alt="Portal Sh" className="w-11 h-11 rounded-xl bg-white object-contain" />
-              {session && <ChevronDown size={16} className={`text-slate-500 transition-transform ${menuOpen ? "rotate-180" : ""}`} />}
-            </button>
+            />
 
             <AnimatePresence>
               {session && menuOpen && (
