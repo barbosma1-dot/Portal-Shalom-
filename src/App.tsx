@@ -1,3 +1,4 @@
+import { ThemeToggle } from './kit';
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -503,6 +504,7 @@ export default function App() {
                 >
                   <Key size={18} />
                 </button>
+                <ThemeToggle variant="cycle" />
                 <button
                   onClick={handleLogout}
                   className="p-2 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
