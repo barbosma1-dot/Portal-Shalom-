@@ -65,7 +65,8 @@ const APP_LABEL: Record<string, string> = {
   evansh: "EvanSh",
   adoracaoshalom: "Adoração Sh",
   cifrash: "Cifras",
-  benfeitorpaz: "Benfeitor da Paz"
+  benfeitorpaz: "Benfeitor da Paz",
+  inventariosh: "Inventário"
 };
 
 const TALLY_LABEL: Record<string, string> = {
