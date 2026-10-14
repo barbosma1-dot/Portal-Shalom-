@@ -32,7 +32,8 @@ const staticApps = [
   { id: "adoracaoshalom", name: "Adoração Shalom", url: "https://adora-o-shalom.pages.dev" },
   { id: "cifrash", name: "Cifras Shalom", url: "https://cifras-sh.pages.dev" },
   { id: "wopsh", name: "WOP Shalom", url: "https://wopsh.pages.dev" },
-  { id: "benfeitorpaz", name: "Benfeitor da Paz", url: "https://benfeitor-da-paz.pages.dev" }
+  { id: "benfeitorpaz", name: "Benfeitor da Paz", url: "https://benfeitor-da-paz.pages.dev" },
+  { id: "inventariosh", name: "Inventário Shalom", url: "https://invent-rio-sh.pages.dev" }
 ];
 
 export default function App() {
